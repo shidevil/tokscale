@@ -594,21 +594,80 @@ pub fn parse_local_sources(options: LocalParseOptions) -> napi::Result<ParsedMes
         }
     }
 
+    // If scan_all_for_synthetic was triggered (synthetic requested but not all sources),
+    // filter messages to only keep sources the user actually requested.
+    let user_requested_sources = &local_sources;
+    if !user_requested_sources.is_empty() {
+        messages.retain(|msg| user_requested_sources.contains(&msg.source));
+    }
+
+    // Recount after source filtering
+    let final_opencode_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"opencode".to_string()) {
+        opencode_count - opencode_delta
+    } else {
+        0
+    };
+    let final_claude_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"claude".to_string()) {
+        claude_count - claude_delta
+    } else {
+        0
+    };
+    let final_codex_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"codex".to_string()) {
+        codex_count - codex_delta
+    } else {
+        0
+    };
+    let final_gemini_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"gemini".to_string()) {
+        gemini_count - gemini_delta
+    } else {
+        0
+    };
+    let final_amp_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"amp".to_string()) {
+        amp_count - amp_delta
+    } else {
+        0
+    };
+    let final_droid_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"droid".to_string()) {
+        droid_count - droid_delta
+    } else {
+        0
+    };
+    let final_openclaw_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"openclaw".to_string()) {
+        openclaw_count - openclaw_delta
+    } else {
+        0
+    };
+    let final_pi_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"pi".to_string()) {
+        pi_count - pi_delta
+    } else {
+        0
+    };
+    let final_kimi_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"kimi".to_string()) {
+        kimi_count - kimi_delta
+    } else {
+        0
+    };
+    let final_synthetic_count = if user_requested_sources.is_empty() || user_requested_sources.contains(&"synthetic".to_string()) {
+        synthetic_count
+    } else {
+        0
+    };
+
     // Apply date filters
     let filtered = filter_parsed_messages(messages, &options);
 
     Ok(ParsedMessages {
         messages: filtered,
-        opencode_count: opencode_count - opencode_delta,
-        claude_count: claude_count - claude_delta,
-        codex_count: codex_count - codex_delta,
-        gemini_count: gemini_count - gemini_delta,
-        amp_count: amp_count - amp_delta,
-        droid_count: droid_count - droid_delta,
-        openclaw_count: openclaw_count - openclaw_delta,
-        pi_count: pi_count - pi_delta,
-        kimi_count: kimi_count - kimi_delta,
-        synthetic_count,
+        opencode_count: final_opencode_count,
+        claude_count: final_claude_count,
+        codex_count: final_codex_count,
+        gemini_count: final_gemini_count,
+        amp_count: final_amp_count,
+        droid_count: final_droid_count,
+        openclaw_count: final_openclaw_count,
+        pi_count: final_pi_count,
+        kimi_count: final_kimi_count,
+        synthetic_count: final_synthetic_count,
         processing_time_ms: start.elapsed().as_millis() as u32,
     })
 }

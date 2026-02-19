@@ -183,17 +183,21 @@ pub fn scan_all_sources(home_dir: &str, sources: &[String]) -> ScanResult {
     let mut result = ScanResult::default();
 
     let include_all = sources.is_empty();
-    let include_opencode = include_all || sources.iter().any(|s| s == "opencode");
-    let include_claude = include_all || sources.iter().any(|s| s == "claude");
-    let include_codex = include_all || sources.iter().any(|s| s == "codex");
-    let include_gemini = include_all || sources.iter().any(|s| s == "gemini");
-    let include_cursor = include_all || sources.iter().any(|s| s == "cursor");
-    let include_amp = include_all || sources.iter().any(|s| s == "amp");
-    let include_droid = include_all || sources.iter().any(|s| s == "droid");
-    let include_openclaw = include_all || sources.iter().any(|s| s == "openclaw");
-    let include_pi = include_all || sources.iter().any(|s| s == "pi");
-    let include_kimi = include_all || sources.iter().any(|s| s == "kimi");
+    // When "synthetic" is requested, we must also scan all other sources because
+    // synthetic detection works by post-processing messages from other agents
+    // (e.g. OpenCode sessions using hf: model prefixes via synthetic.new gateway).
     let include_synthetic = include_all || sources.iter().any(|s| s == "synthetic");
+    let scan_all_for_synthetic = include_synthetic && !include_all;
+    let include_opencode = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "opencode");
+    let include_claude = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "claude");
+    let include_codex = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "codex");
+    let include_gemini = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "gemini");
+    let include_cursor = include_all || sources.iter().any(|s| s == "cursor");
+    let include_amp = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "amp");
+    let include_droid = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "droid");
+    let include_openclaw = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "openclaw");
+    let include_pi = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "pi");
+    let include_kimi = include_all || scan_all_for_synthetic || sources.iter().any(|s| s == "kimi");
 
     let headless_roots = headless_roots(home_dir);
 
