@@ -457,9 +457,7 @@ fn render_breakdown_panel(frame: &mut Frame, app: &App, area: Rect) {
             String,
             Vec<(String, &crate::tui::data::DailyModelInfo)>,
         > = std::collections::BTreeMap::new();
-        let mut model_entries: Vec<_> = daily.models.iter().collect();
-        model_entries.sort_by_key(|(name, _)| (*name).clone());
-        for (model_name, model_info) in model_entries {
+        for (model_name, model_info) in &daily.models {
             grouped
                 .entry(model_info.client.clone())
                 .or_default()

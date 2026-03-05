@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -51,7 +51,7 @@ pub struct DailyUsage {
     pub date: NaiveDate,
     pub tokens: TokenBreakdown,
     pub cost: f64,
-    pub models: HashMap<String, DailyModelInfo>,
+    pub models: BTreeMap<String, DailyModelInfo>,
 }
 
 #[derive(Debug, Clone)]
@@ -434,7 +434,7 @@ impl DataLoader {
                     date,
                     tokens: TokenBreakdown::default(),
                     cost: 0.0,
-                    models: HashMap::new(),
+                    models: BTreeMap::new(),
                 });
 
                 daily_entry.tokens.input = daily_entry
