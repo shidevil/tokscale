@@ -324,13 +324,15 @@ pub fn parse_codex_file(path: &Path) -> Vec<UnifiedMessage> {
             continue;
         }
 
-        if let Some(msg) =
-            parse_codex_headless_line(trimmed, &session_id, &mut current_model, fallback_timestamp)
-        {
-            let mut msg = msg;
-            if session_is_headless && msg.agent.is_none() {
-                msg.agent = Some("headless".to_string());
-            }
+        if let Some(msg) = parse_codex_headless_line(
+            trimmed,
+            &session_id,
+            &mut current_model,
+            fallback_timestamp,
+            session_provider.as_deref(),
+            &session_agent,
+            session_is_headless,
+        ) {
             messages.push(msg);
         }
     }
@@ -343,11 +345,19 @@ fn extract_model(payload: &CodexPayload) -> Option<String> {
         .model_info
         .as_ref()
         .and_then(|mi| mi.slug.clone())
-        .or(payload.model.clone())
-        .or(payload.model_name.clone())
-        .or(payload.info.as_ref().and_then(|i| i.model.clone()))
-        .or(payload.info.as_ref().and_then(|i| i.model_name.clone()))
-        .filter(|m| !m.is_empty())
+        .filter(|s| !s.is_empty())
+        .or(payload.model.clone().filter(|s| !s.is_empty()))
+        .or(payload.model_name.clone().filter(|s| !s.is_empty()))
+        .or(payload
+            .info
+            .as_ref()
+            .and_then(|i| i.model.clone())
+            .filter(|s| !s.is_empty()))
+        .or(payload
+            .info
+            .as_ref()
+            .and_then(|i| i.model_name.clone())
+            .filter(|s| !s.is_empty()))
 }
 
 struct CodexHeadlessUsage {
@@ -363,6 +373,9 @@ fn parse_codex_headless_line(
     session_id: &str,
     current_model: &mut Option<String>,
     fallback_timestamp: i64,
+    session_provider: Option<&str>,
+    session_agent: &Option<String>,
+    session_is_headless: bool,
 ) -> Option<UnifiedMessage> {
     let mut bytes = line.as_bytes().to_vec();
     let value: Value = simd_json::from_slice(&mut bytes).ok()?;
@@ -382,10 +395,17 @@ fn parse_codex_headless_line(
         return None;
     }
 
-    Some(UnifiedMessage::new(
+    let provider = session_provider.unwrap_or("openai");
+    let agent = if session_is_headless {
+        Some("headless".to_string())
+    } else {
+        session_agent.clone()
+    };
+
+    Some(UnifiedMessage::new_with_agent(
         "codex",
         model,
-        "openai",
+        provider,
         session_id.to_string(),
         timestamp,
         TokenBreakdown {
@@ -396,6 +416,7 @@ fn parse_codex_headless_line(
             reasoning: 0,
         },
         0.0,
+        agent,
     ))
 }
 
@@ -832,5 +853,49 @@ mod tests {
         assert_eq!(messages[1].tokens.output, 10);
         assert_eq!(messages[1].tokens.cache_read, 5);
         assert_eq!(messages[1].tokens.reasoning, 2);
+    }
+
+    #[test]
+    fn test_headless_fallback_uses_session_provider_and_agent() {
+        // session_meta sets provider to "azure" and agent to "my-bot",
+        // then a line falls through to headless parsing (no structured entry_type)
+        let line1 = r#"{"timestamp":"2026-01-01T00:00:00Z","type":"session_meta","payload":{"model_provider":"azure","agent_nickname":"my-bot"}}"#;
+        let line2 = r#"{"type":"turn.completed","model":"gpt-4o","usage":{"input_tokens":100,"output_tokens":50}}"#;
+        let content = format!("{}\n{}", line1, line2);
+        let file = create_test_file(&content);
+
+        let messages = parse_codex_file(file.path());
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].provider_id, "azure");
+        assert_eq!(messages[0].agent.as_deref(), Some("my-bot"));
+    }
+
+    #[test]
+    fn test_headless_fallback_defaults_to_openai_without_session_meta() {
+        // No session_meta — headless fallback should default to "openai"
+        let content = r#"{"type":"turn.completed","model":"gpt-4o-mini","usage":{"input_tokens":120,"cached_input_tokens":20,"output_tokens":30}}"#;
+        let file = create_test_file(content);
+
+        let messages = parse_codex_file(file.path());
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].provider_id, "openai");
+        assert!(messages[0].agent.is_none());
+    }
+
+    #[test]
+    fn test_extract_model_skips_empty_slug_falls_through_to_model() {
+        // model_info.slug is empty string, but payload.model has a valid value.
+        // extract_model should skip the empty slug and return payload.model.
+        let line1 = r#"{"timestamp":"2026-01-01T00:00:00Z","type":"turn_context","payload":{"model_info":{"slug":""},"model":"gpt-4o"}}"#;
+        let line2 = r#"{"timestamp":"2026-01-01T00:00:01Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":10,"output_tokens":5}}}}"#;
+        let content = format!("{}\n{}", line1, line2);
+        let file = create_test_file(&content);
+
+        let messages = parse_codex_file(file.path());
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].model_id, "gpt-4o");
     }
 }
