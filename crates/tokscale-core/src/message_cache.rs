@@ -1,5 +1,5 @@
-use crate::UnifiedMessage;
 use crate::sessions::codex::CodexParseState;
+use crate::UnifiedMessage;
 use bincode::Options;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};

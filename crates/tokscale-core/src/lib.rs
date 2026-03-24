@@ -1631,10 +1631,10 @@ pub fn parsed_to_unified(msg: &ParsedMessage, cost: f64) -> UnifiedMessage {
 #[cfg(test)]
 mod tests {
     use super::{
-        ClientId, GroupBy, LocalParseOptions, TokenBreakdown, UnifiedMessage,
         apply_pricing_if_available, message_cache, normalize_model_for_grouping,
         parse_all_messages_with_pricing, parse_local_clients, pricing,
-        retain_for_requested_clients, select_local_parse_pricing,
+        retain_for_requested_clients, select_local_parse_pricing, ClientId, GroupBy,
+        LocalParseOptions, TokenBreakdown, UnifiedMessage,
     };
     use std::collections::{HashMap, HashSet};
     use std::io::Write;
