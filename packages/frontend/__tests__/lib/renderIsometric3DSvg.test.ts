@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   renderIsometric3DEmbedSvg,
   renderIsometric3DErrorSvg,
@@ -22,14 +22,22 @@ const mockStats: UserEmbedStats = {
 };
 
 const mockContributions: EmbedContributionDay[] = [
-  { date: "2026-01-15", intensity: 0 },
-  { date: "2026-02-10", intensity: 2 },
-  { date: "2026-02-20", intensity: 4 },
-  { date: "2026-03-01", intensity: 1 },
-  { date: "2026-03-10", intensity: 3 },
+  { date: "2026-01-15", totalTokens: 0, totalCost: 0, intensity: 0 },
+  { date: "2026-02-10", totalTokens: 100, totalCost: 1, intensity: 2 },
+  { date: "2026-02-20", totalTokens: 1000, totalCost: 10, intensity: 4 },
+  { date: "2026-03-01", totalTokens: 50, totalCost: 0.5, intensity: 1 },
+  { date: "2026-03-10", totalTokens: 500, totalCost: 5, intensity: 3 },
 ];
 
 describe("renderIsometric3DEmbedSvg", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-11T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it("renders a valid SVG with polygon elements", () => {
     const svg = renderIsometric3DEmbedSvg(mockStats, mockContributions);
 
@@ -131,6 +139,31 @@ describe("renderIsometric3DEmbedSvg", () => {
     expect(polygonCount % 3).toBe(0);
     expect(svg).toContain("0 active days");
     expect(svg).toContain("0 days");
+  });
+
+  it("counts the current streak from yesterday when today has no activity", () => {
+    const svg = renderIsometric3DEmbedSvg(mockStats, [
+      { date: "2026-03-08", totalTokens: 200, totalCost: 2, intensity: 2 },
+      { date: "2026-03-09", totalTokens: 300, totalCost: 3, intensity: 3 },
+      { date: "2026-03-10", totalTokens: 400, totalCost: 4, intensity: 4 },
+    ]);
+
+    expect(svg).toContain(">3 days</text>");
+  });
+
+  it("scales cube heights by actual token usage within the same intensity bucket", () => {
+    const svg = renderIsometric3DEmbedSvg(mockStats, [
+      { date: "2026-03-08", totalTokens: 10, totalCost: 1, intensity: 4 },
+      { date: "2026-03-09", totalTokens: 1000, totalCost: 2, intensity: 4 },
+    ]);
+    const topFaceMatches = [...svg.matchAll(/<polygon points="([^"]+)" fill="#0d419d" stroke="#0d419d"/g)];
+    const topFaceYs = topFaceMatches.map((match) => {
+      const firstPoint = match[1].split(" ")[0];
+      return Number(firstPoint.split(",")[1]);
+    }).sort((a, b) => a - b);
+
+    expect(topFaceYs).toHaveLength(2);
+    expect(topFaceYs[0]).toBeLessThan(topFaceYs[1]);
   });
 
   it("renders fixed-width SVG of 680px", () => {

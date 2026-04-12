@@ -6,6 +6,8 @@ export type EmbedSortBy = "tokens" | "cost";
 
 export interface EmbedContributionDay {
   date: string;
+  totalTokens: number;
+  totalCost: number;
   intensity: 0 | 1 | 2 | 3 | 4;
 }
 
@@ -116,6 +118,7 @@ async function fetchUserEmbedContributions(username: string): Promise<EmbedContr
   const rows = await db
     .select({
       date: dailyBreakdown.date,
+      tokens: sql<number>`sum(${dailyBreakdown.tokens})`.as("tokens"),
       cost: sql<number>`sum(${dailyBreakdown.cost})`.as("cost"),
     })
     .from(dailyBreakdown)
@@ -130,9 +133,12 @@ async function fetchUserEmbedContributions(username: string): Promise<EmbedContr
   const maxCost = Math.max(...costs, 0);
 
   return rows.map((row) => {
+    const totalTokens = Number(row.tokens) || 0;
     const cost = Number(row.cost) || 0;
     return {
       date: row.date,
+      totalTokens,
+      totalCost: cost,
       intensity: (
         maxCost === 0 ? 0 : cost === 0 ? 0 : cost <= maxCost * 0.25 ? 1 : cost <= maxCost * 0.5 ? 2 : cost <= maxCost * 0.75 ? 3 : 4
       ) as 0 | 1 | 2 | 3 | 4,

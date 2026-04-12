@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (view === "3d") {
       const contributions = await getUserEmbedContributions(username).catch(() => null);
 
-      if (!contributions || contributions.length === 0) {
+      if (!contributions) {
         const svg = renderIsometric3DErrorSvg("No contribution data available yet", { theme });
         return createSvgResponse(svg);
       }

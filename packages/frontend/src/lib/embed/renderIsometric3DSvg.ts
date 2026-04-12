@@ -72,7 +72,8 @@ const FIGTREE_FONT_IMPORT = "https://fonts.googleapis.com/css2?family=Figtree:wg
 
 const CELL = 10;
 const MAX_HEIGHT = 40;
-const INTENSITY_HEIGHTS: readonly number[] = [2, 10, 20, 32, MAX_HEIGHT];
+const BASE_HEIGHT = 2;
+const MIN_NON_ZERO_HEIGHT = 8;
 
 /**
  * 2:1 dimetric projection: col (X) goes screen right-down,
@@ -159,6 +160,16 @@ function formatShortDate(dateStr: string): string {
   return `${mm}/${dd}`;
 }
 
+function previousUtcDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().split("T")[0];
+}
+
+function getContributionHeightValue(contribution: EmbedContributionDay): number {
+  return contribution.totalTokens > 0 ? contribution.totalTokens : contribution.totalCost;
+}
+
 function computeStreaks(contributions: EmbedContributionDay[]): { longest: number; current: number } {
   const activeSet = new Set<string>();
   for (const c of contributions) {
@@ -186,12 +197,16 @@ function computeStreaks(contributions: EmbedContributionDay[]): { longest: numbe
   const todayStr = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
     .toISOString()
     .split("T")[0];
-  let cursor = todayStr;
-  while (activeSet.has(cursor)) {
+  const yesterdayStr = previousUtcDate(todayStr);
+  let cursor = activeSet.has(todayStr)
+    ? todayStr
+    : activeSet.has(yesterdayStr)
+      ? yesterdayStr
+      : null;
+
+  while (cursor && activeSet.has(cursor)) {
     current++;
-    const d = new Date(cursor + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() - 1);
-    cursor = d.toISOString().split("T")[0];
+    cursor = previousUtcDate(cursor);
   }
 
   return { longest, current };
@@ -211,7 +226,6 @@ function renderStatsBox(
   const footerH = footer ? 22 : 0;
   const boxPad = 10;
   const innerH = items.length * itemH;
-  const totalH = titleH + boxPad * 2 + innerH + footerH;
 
   const boxY = y + titleH + 4;
   const boxInnerH = innerH + boxPad * 2 + footerH;
@@ -245,8 +259,8 @@ export function renderIsometric3DEmbedSvg(
   const theme: EmbedTheme = options.theme === "light" ? "light" : "dark";
   const palette = THEMES[theme];
 
-  const intensityMap = new Map<string, number>();
-  for (const c of contributions) intensityMap.set(c.date, c.intensity);
+  const contributionMap = new Map<string, EmbedContributionDay>();
+  for (const c of contributions) contributionMap.set(c.date, c);
 
   const colors = [
     palette.graphGrade0,
@@ -277,6 +291,10 @@ export function renderIsometric3DEmbedSvg(
 
   const gridOriginX = px + 7 * CELL + Math.max(0, (width - 2 * px - gridXExtent) / 2);
   const gridOriginY = headerH + MAX_HEIGHT + 4;
+  const maxContributionHeightValue = contributions.reduce((max, contribution) => {
+    const value = getContributionHeightValue(contribution);
+    return value > max ? value : max;
+  }, 0);
 
   let cubes = "";
   for (let w = 0; w < numWeeks; w++) {
@@ -286,8 +304,15 @@ export function renderIsometric3DEmbedSvg(
       if (date > today) continue;
 
       const dateStr = date.toISOString().split("T")[0];
-      const intensity = (intensityMap.get(dateStr) ?? 0) as 0 | 1 | 2 | 3 | 4;
-      const h = INTENSITY_HEIGHTS[intensity];
+      const contribution = contributionMap.get(dateStr);
+      const intensity = (contribution?.intensity ?? 0) as 0 | 1 | 2 | 3 | 4;
+      const heightValue = contribution ? getContributionHeightValue(contribution) : 0;
+      const h = heightValue > 0 && maxContributionHeightValue > 0
+        ? Math.max(
+            MIN_NON_ZERO_HEIGHT,
+            Math.round((heightValue / maxContributionHeightValue) * (MAX_HEIGHT - MIN_NON_ZERO_HEIGHT) + MIN_NON_ZERO_HEIGHT),
+          )
+        : BASE_HEIGHT;
       const color = colors[intensity];
 
       cubes += renderCube(gridOriginX, gridOriginY, w, d, h, color);
