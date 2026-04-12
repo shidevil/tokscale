@@ -48,6 +48,9 @@ struct Cli {
     #[arg(long, help = "Show only Codex CLI usage")]
     codex: bool,
 
+    #[arg(long, help = "Show only Copilot CLI usage")]
+    copilot: bool,
+
     #[arg(long, help = "Show only Gemini CLI usage")]
     gemini: bool,
 
@@ -148,6 +151,8 @@ enum Commands {
         claude: bool,
         #[arg(long, help = "Show only Codex CLI usage")]
         codex: bool,
+        #[arg(long, help = "Show only Copilot CLI usage")]
+        copilot: bool,
         #[arg(long, help = "Show only Gemini CLI usage")]
         gemini: bool,
         #[arg(long, help = "Show only Cursor IDE usage")]
@@ -215,6 +220,8 @@ enum Commands {
         claude: bool,
         #[arg(long, help = "Show only Codex CLI usage")]
         codex: bool,
+        #[arg(long, help = "Show only Copilot CLI usage")]
+        copilot: bool,
         #[arg(long, help = "Show only Gemini CLI usage")]
         gemini: bool,
         #[arg(long, help = "Show only Cursor IDE usage")]
@@ -294,6 +301,8 @@ enum Commands {
         claude: bool,
         #[arg(long, help = "Show only Codex CLI usage")]
         codex: bool,
+        #[arg(long, help = "Show only Copilot CLI usage")]
+        copilot: bool,
         #[arg(long, help = "Show only Gemini CLI usage")]
         gemini: bool,
         #[arg(long, help = "Show only Cursor IDE usage")]
@@ -350,6 +359,8 @@ enum Commands {
         claude: bool,
         #[arg(long, help = "Show only Codex CLI usage")]
         codex: bool,
+        #[arg(long, help = "Show only Copilot CLI usage")]
+        copilot: bool,
         #[arg(long, help = "Show only Gemini CLI usage")]
         gemini: bool,
         #[arg(long, help = "Show only Cursor IDE usage")]
@@ -402,6 +413,8 @@ enum Commands {
         claude: bool,
         #[arg(long, help = "Include only Codex CLI data")]
         codex: bool,
+        #[arg(long, help = "Include only Copilot CLI data")]
+        copilot: bool,
         #[arg(long, help = "Include only Gemini CLI data")]
         gemini: bool,
         #[arg(long, help = "Include only Cursor IDE data")]
@@ -475,6 +488,8 @@ enum Commands {
         claude: bool,
         #[arg(long, help = "Show only Codex CLI usage")]
         codex: bool,
+        #[arg(long, help = "Show only Copilot CLI usage")]
+        copilot: bool,
         #[arg(long, help = "Show only Gemini CLI usage")]
         gemini: bool,
         #[arg(long, help = "Show only Cursor IDE usage")]
@@ -579,6 +594,7 @@ fn main() -> Result<()> {
             opencode,
             claude,
             codex,
+            copilot,
             gemini,
             cursor,
             amp,
@@ -614,6 +630,7 @@ fn main() -> Result<()> {
                 opencode,
                 claude,
                 codex,
+                copilot,
                 gemini,
                 cursor,
                 amp,
@@ -667,6 +684,7 @@ fn main() -> Result<()> {
             opencode,
             claude,
             codex,
+            copilot,
             gemini,
             cursor,
             amp,
@@ -695,6 +713,7 @@ fn main() -> Result<()> {
                 opencode,
                 claude,
                 codex,
+                copilot,
                 gemini,
                 cursor,
                 amp,
@@ -771,6 +790,7 @@ fn main() -> Result<()> {
             opencode,
             claude,
             codex,
+            copilot,
             gemini,
             cursor,
             amp,
@@ -799,6 +819,7 @@ fn main() -> Result<()> {
                 opencode,
                 claude,
                 codex,
+                copilot,
                 gemini,
                 cursor,
                 amp,
@@ -832,6 +853,7 @@ fn main() -> Result<()> {
             opencode,
             claude,
             codex,
+            copilot,
             gemini,
             cursor,
             amp,
@@ -859,6 +881,7 @@ fn main() -> Result<()> {
                 opencode,
                 claude,
                 codex,
+                copilot,
                 gemini,
                 cursor,
                 amp,
@@ -892,6 +915,7 @@ fn main() -> Result<()> {
             opencode,
             claude,
             codex,
+            copilot,
             gemini,
             cursor,
             amp,
@@ -920,6 +944,7 @@ fn main() -> Result<()> {
                 opencode,
                 claude,
                 codex,
+                copilot,
                 gemini,
                 cursor,
                 amp,
@@ -956,6 +981,7 @@ fn main() -> Result<()> {
             opencode,
             claude,
             codex,
+            copilot,
             gemini,
             cursor,
             amp,
@@ -982,6 +1008,7 @@ fn main() -> Result<()> {
                 opencode,
                 claude,
                 codex,
+                copilot,
                 gemini,
                 cursor,
                 amp,
@@ -1021,6 +1048,7 @@ fn main() -> Result<()> {
                 opencode: cli.opencode,
                 claude: cli.claude,
                 codex: cli.codex,
+                copilot: cli.copilot,
                 gemini: cli.gemini,
                 cursor: cli.cursor,
                 amp: cli.amp,
@@ -1096,6 +1124,7 @@ struct ClientFlags {
     opencode: bool,
     claude: bool,
     codex: bool,
+    copilot: bool,
     gemini: bool,
     cursor: bool,
     amp: bool,
@@ -1120,6 +1149,7 @@ fn build_client_filter(flags: ClientFlags) -> Option<Vec<String>> {
         (ClientId::OpenCode, flags.opencode),
         (ClientId::Claude, flags.claude),
         (ClientId::Codex, flags.codex),
+        (ClientId::Copilot, flags.copilot),
         (ClientId::Gemini, flags.gemini),
         (ClientId::Cursor, flags.cursor),
         (ClientId::Amp, flags.amp),
@@ -2526,6 +2556,8 @@ fn run_clients_command(json: bool) -> Result<()> {
         #[serde(skip_serializing_if = "Vec::is_empty")]
         headless_paths: Vec<HeadlessPath>,
         headless_message_count: i32,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        exporter_status: Option<String>,
         #[serde(skip_serializing_if = "Vec::is_empty")]
         extra_paths: Vec<ExtraPath>,
     }
@@ -2556,6 +2588,7 @@ fn run_clients_command(json: bool) -> Result<()> {
     let all_clients: std::collections::HashSet<ClientId> = ClientId::iter().collect();
     let extra_dirs: Vec<(ClientId, String)> =
         tokscale_core::parse_extra_dirs(&extra_dirs_val, &all_clients);
+    let copilot_exporter_path = tokscale_core::copilot_exporter_path();
 
     let clients: Vec<ClientRow> = ClientId::iter()
         .map(|client| {
@@ -2611,6 +2644,7 @@ fn run_clients_command(json: bool) -> Result<()> {
             let label = match client {
                 ClientId::Claude => "Claude Code",
                 ClientId::Codex => "Codex CLI",
+                ClientId::Copilot => "Copilot CLI",
                 ClientId::Gemini => "Gemini CLI",
                 ClientId::Cursor => "Cursor IDE",
                 ClientId::Kimi => "Kimi CLI",
@@ -2626,6 +2660,8 @@ fn run_clients_command(json: bool) -> Result<()> {
                     exists: Path::new(path).exists(),
                 })
                 .collect();
+            let exporter_status = (client == ClientId::Copilot && copilot_exporter_path.is_some())
+                .then(|| "configured".to_string());
 
             ClientRow {
                 client: client.as_str().to_string(),
@@ -2637,6 +2673,7 @@ fn run_clients_command(json: bool) -> Result<()> {
                 headless_supported,
                 headless_paths,
                 headless_message_count,
+                exporter_status,
                 extra_paths,
             }
         })
@@ -2711,6 +2748,13 @@ fn run_clients_command(json: bool) -> Result<()> {
                 println!(
                     "  {}",
                     format!("extra: {}", extra_desc.join(", ")).bright_black()
+                );
+            }
+
+            if let Some(exporter_status) = row.exporter_status.as_ref() {
+                println!(
+                    "  {}",
+                    format!("exporter: {}", exporter_status).bright_black()
                 );
             }
 
@@ -3951,6 +3995,7 @@ mod tests {
             opencode: false,
             claude: false,
             codex: false,
+            copilot: false,
             gemini: false,
             cursor: false,
             amp: false,
@@ -3976,6 +4021,7 @@ mod tests {
             opencode: true,
             claude: false,
             codex: false,
+            copilot: false,
             gemini: false,
             cursor: false,
             amp: false,
@@ -4004,6 +4050,7 @@ mod tests {
             opencode: true,
             claude: true,
             codex: false,
+            copilot: false,
             gemini: false,
             cursor: false,
             amp: false,
@@ -4036,6 +4083,7 @@ mod tests {
             opencode: false,
             claude: false,
             codex: false,
+            copilot: false,
             gemini: false,
             cursor: false,
             amp: false,
@@ -4064,6 +4112,7 @@ mod tests {
             opencode: true,
             claude: true,
             codex: true,
+            copilot: true,
             gemini: true,
             cursor: true,
             amp: true,
@@ -4088,6 +4137,7 @@ mod tests {
         assert!(sources.contains(&"opencode".to_string()));
         assert!(sources.contains(&"claude".to_string()));
         assert!(sources.contains(&"codex".to_string()));
+        assert!(sources.contains(&"copilot".to_string()));
         assert!(sources.contains(&"gemini".to_string()));
         assert!(sources.contains(&"cursor".to_string()));
         assert!(sources.contains(&"amp".to_string()));
