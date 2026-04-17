@@ -4,7 +4,7 @@ use ratatui::widgets::{
 };
 
 use super::bar_chart::{render_stacked_bar_chart, ModelSegment, StackedBarData};
-use super::widgets::{format_tokens, get_model_color};
+use super::widgets::format_tokens;
 use crate::tui::app::{App, ChartGranularity};
 use tokscale_core::GroupBy;
 
@@ -97,7 +97,7 @@ fn render_chart(frame: &mut Frame, app: &App, area: Rect) {
                                     .or_insert_with(|| ModelSegment {
                                         model_id: info.display_name.clone(),
                                         tokens: 0,
-                                        color: get_model_color(overview_color_key(
+                                        color: app.model_color(overview_color_key(
                                             &group_by,
                                             &info.color_key,
                                         )),
@@ -132,7 +132,7 @@ fn render_chart(frame: &mut Frame, app: &App, area: Rect) {
                         .map(|(name, info)| ModelSegment {
                             model_id: name.clone(),
                             tokens: info.tokens.total(),
-                            color: get_model_color(name),
+                            color: app.model_color(name),
                         })
                         .collect();
 
@@ -162,7 +162,7 @@ fn render_legend(frame: &mut Frame, app: &App, area: Rect) {
         .map(|m| {
             (
                 overview_model_label(&group_by, &m.model, m.workspace_label.as_deref()),
-                get_model_color(&m.model),
+                app.model_color(&m.model),
             )
         })
         .collect();
@@ -292,7 +292,7 @@ fn render_top_models(frame: &mut Frame, app: &mut App, area: Rect, items_per_pag
             Style::default()
         };
 
-        let model_color = get_model_color(&model.model);
+        let model_color = app.model_color(&model.model);
         let display_name =
             overview_model_label(&group_by, &model.model, model.workspace_label.as_deref());
         let name = truncate_string(&display_name, max_name_width);

@@ -4,7 +4,7 @@ use ratatui::widgets::{
 };
 
 use super::widgets::{
-    format_cost, format_tokens, get_client_color, get_client_display_name, get_model_color,
+    format_cost, format_tokens, get_client_color, get_client_display_name,
 };
 use crate::tui::app::{App, ClickAction};
 
@@ -274,7 +274,7 @@ fn render_stats_panel(frame: &mut Frame, app: &App, area: Rect) {
         .map(|m| m.model.as_str())
         .unwrap_or("N/A");
 
-    let model_color = get_model_color(favorite_model);
+    let model_color = app.model_color(favorite_model);
     let sessions: u32 = app.data.models.iter().map(|m| m.session_count).sum();
 
     let col1_width = if is_narrow { 36u16 } else { 60u16 };
@@ -552,7 +552,7 @@ fn render_breakdown_panel(frame: &mut Frame, app: &mut App, area: Rect) {
                 ]));
 
                 for model_info in models {
-                    let model_color = get_model_color(&model_info.color_key);
+                    let model_color = app.model_color(&model_info.color_key);
                     lines.push(Line::from(vec![
                         Span::raw("  "),
                         Span::styled("●", Style::default().fg(model_color)),

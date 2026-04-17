@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -8,10 +8,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent,
 use ratatui::layout::Rect;
 use tokscale_core::ClientId;
 
+use ratatui::style::Color;
+
 use super::data::{AgentUsage, DailyUsage, DataLoader, HourlyUsage, ModelUsage, UsageData};
 use super::settings::Settings;
 use super::themes::{Theme, ThemeName};
 use super::ui::dialog::{ClientPickerDialog, DialogStack};
+use super::ui::widgets::{get_model_color, get_provider_from_model, get_provider_shade};
 
 /// Configuration for TUI initialization
 pub struct TuiConfig {
@@ -176,6 +179,8 @@ pub struct App {
     pub dialog_needs_reload: Rc<RefCell<bool>>,
 
     pub hourly_view_mode: HourlyViewMode,
+
+    pub model_shade_map: HashMap<String, Color>,
 }
 
 impl App {
@@ -226,7 +231,7 @@ impl App {
         let dialog_stack = DialogStack::new(theme.clone());
         let dialog_needs_reload = Rc::new(RefCell::new(false));
 
-        Ok(Self {
+        let mut app = Self {
             should_quit: false,
             current_tab: config.initial_tab.unwrap_or(Tab::Overview),
             theme,
@@ -262,7 +267,10 @@ impl App {
             dialog_stack,
             dialog_needs_reload,
             hourly_view_mode: HourlyViewMode::default(),
-        })
+            model_shade_map: HashMap::new(),
+        };
+        app.build_model_shade_map();
+        Ok(app)
     }
 
     pub fn set_background_loading(&mut self, loading: bool) {
@@ -273,7 +281,37 @@ impl App {
     pub fn update_data(&mut self, data: UsageData) {
         self.data = data;
         self.last_refresh = Instant::now();
+        self.build_model_shade_map();
         self.clamp_selection();
+    }
+
+    pub fn build_model_shade_map(&mut self) {
+        self.model_shade_map.clear();
+
+        let mut provider_models: HashMap<&str, Vec<(&str, f64)>> = HashMap::new();
+        for m in &self.data.models {
+            let provider = get_provider_from_model(&m.model);
+            provider_models
+                .entry(provider)
+                .or_default()
+                .push((&m.model, m.cost));
+        }
+
+        for (provider, mut models) in provider_models {
+            models.sort_by(|a, b| b.1.total_cmp(&a.1));
+            for (rank, (model_name, _)) in models.iter().enumerate() {
+                let color = get_provider_shade(provider, rank);
+                self.model_shade_map
+                    .insert(model_name.to_string(), color);
+            }
+        }
+    }
+
+    pub fn model_color(&self, model: &str) -> Color {
+        self.model_shade_map
+            .get(model)
+            .copied()
+            .unwrap_or_else(|| get_model_color(model))
     }
 
     pub fn has_visible_data(&self) -> bool {

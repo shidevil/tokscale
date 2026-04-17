@@ -65,19 +65,90 @@ pub fn get_model_color(model: &str) -> Color {
     if let Some(color) = config.get_provider_color(provider) {
         return color;
     }
-    match provider {
-        "anthropic" => Color::Rgb(218, 119, 86), // #DA7756 Claude brand coral
-        "openai" => Color::Rgb(16, 185, 129),    // #10B981
-        "google" => Color::Rgb(59, 130, 246),    // #3B82F6
-        "cursor" => Color::Rgb(139, 92, 246),    // #8B5CF6
-        "deepseek" => Color::Rgb(6, 182, 212),   // #06B6D4
-        "xai" => Color::Rgb(234, 179, 8),        // #EAB308
-        "meta" => Color::Rgb(99, 102, 241),      // #6366F1
-        _ => Color::Rgb(255, 255, 255),          // #FFFFFF (unknown)
-    }
+    get_provider_shade(provider, 0)
 }
 
-fn get_provider_from_model(model: &str) -> &'static str {
+pub fn get_provider_shade(provider: &str, rank: usize) -> Color {
+    let palette: &[(u8, u8, u8)] = match provider {
+        "anthropic" => &ANTHROPIC_SHADES,
+        "openai" => &OPENAI_SHADES,
+        "google" => &GOOGLE_SHADES,
+        "deepseek" => &DEEPSEEK_SHADES,
+        "xai" => &XAI_SHADES,
+        "meta" => &META_SHADES,
+        "cursor" => &CURSOR_SHADES,
+        _ => &[(255, 255, 255)],
+    };
+    let idx = rank.min(palette.len() - 1);
+    let (r, g, b) = palette[idx];
+    Color::Rgb(r, g, b)
+}
+
+const ANTHROPIC_SHADES: [(u8, u8, u8); 7] = [
+    (218, 119, 86),  // #DA7756
+    (223, 136, 107), // #DF886B
+    (227, 153, 128), // #E39980
+    (232, 170, 149), // #E8AA95
+    (236, 184, 166), // #ECB8A6
+    (239, 197, 183), // #EFC5B7
+    (243, 210, 199), // #F3D2C7
+];
+
+const OPENAI_SHADES: [(u8, u8, u8); 7] = [
+    (16, 185, 129),  // #10B981
+    (18, 208, 145),  // #12D091
+    (20, 232, 162),  // #14E8A2
+    (41, 236, 172),  // #29ECAC
+    (61, 238, 179),  // #3DEEB3
+    (97, 241, 193),  // #61F1C1
+    (133, 244, 208), // #85F4D0
+];
+
+const GOOGLE_SHADES: [(u8, u8, u8); 7] = [
+    (59, 130, 246),  // #3B82F6
+    (83, 146, 247),  // #5392F7
+    (108, 161, 248), // #6CA1F8
+    (132, 177, 249), // #84B1F9
+    (153, 190, 250), // #99BEFA
+    (172, 202, 251), // #ACCAFB
+    (190, 214, 252), // #BED6FC
+];
+
+const DEEPSEEK_SHADES: [(u8, u8, u8); 7] = [
+    (6, 182, 212),   // #06B6D4
+    (7, 203, 237),   // #07CBED
+    (21, 215, 248),  // #15D7F8
+    (45, 219, 249),  // #2DDBF9
+    (66, 223, 250),  // #42DFFA
+    (85, 226, 250),  // #55E2FA
+    (105, 229, 251), // #69E5FB
+];
+
+const XAI_SHADES: [(u8, u8, u8); 7] = [
+    (234, 179, 8),   // #EAB308
+    (247, 192, 21),  // #F7C015
+    (248, 199, 45),  // #F8C72D
+    (249, 205, 70),  // #F9CD46
+    (249, 211, 91),  // #F9D35B
+    (250, 216, 110), // #FAD86E
+    (251, 221, 129), // #FBDD81
+];
+
+const META_SHADES: [(u8, u8, u8); 7] = [
+    (99, 102, 241),  // #6366F1
+    (122, 125, 243), // #7A7DF3
+    (146, 148, 245), // #9294F5
+    (169, 171, 247), // #A9ABF7
+    (189, 190, 249), // #BDBEF9
+    (207, 208, 251), // #CFD0FB
+    (225, 226, 252), // #E1E2FC
+];
+
+const CURSOR_SHADES: [(u8, u8, u8); 1] = [
+    (139, 92, 246),  // #8B5CF6
+];
+
+pub fn get_provider_from_model(model: &str) -> &'static str {
     let model_lower = model.to_lowercase();
 
     if model_lower.contains("claude")

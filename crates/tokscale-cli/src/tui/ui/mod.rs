@@ -10,7 +10,7 @@ mod models;
 mod overview;
 pub mod spinner;
 mod stats;
-mod widgets;
+pub(crate) mod widgets;
 
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
