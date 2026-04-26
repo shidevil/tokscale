@@ -499,7 +499,7 @@ Tokscale 将设置存储在 `~/.config/tokscale/settings.json`：
 | 变量 | 默认值 | 描述 |
 |----------|---------|-------------|
 | `TOKSCALE_NATIVE_TIMEOUT_MS` | `300000`（5 分钟） | 覆盖 `nativeTimeoutMs` 配置 |
-| `TOKSCALE_CONFIG_DIR` | unset | 覆盖配置目录（`settings.json` 所在位置）。绝对路径。适用于 CI 沙箱或固定到非默认位置。 |
+| `TOKSCALE_CONFIG_DIR` | unset | 覆盖配置目录（`settings.json` 和 `star-cache.json` 所在位置）。建议使用绝对路径；相对路径将基于进程 CWD 解析。适用于 CI 沙箱或固定到非默认位置。设置后，tokscale 不会回退到 macOS 旧路径（`~/Library/Application Support/tokscale/`）。 |
 
 ```bash
 # 示例：为非常大的数据集增加超时时间

@@ -499,7 +499,7 @@ Tokscaleは設定を`~/.config/tokscale/settings.json`に保存します：
 | 変数 | デフォルト | 説明 |
 |----------|---------|-------------|
 | `TOKSCALE_NATIVE_TIMEOUT_MS` | `300000`（5分） | `nativeTimeoutMs` 設定をオーバーライド |
-| `TOKSCALE_CONFIG_DIR` | unset | 設定ディレクトリ（`settings.json` の保存場所）をオーバーライドします。絶対パス。CI サンドボックスや非デフォルトの場所を固定したい場合に便利です。 |
+| `TOKSCALE_CONFIG_DIR` | unset | 設定ディレクトリ（`settings.json` と `star-cache.json` の保存場所）をオーバーライドします。絶対パス推奨；相対パスはプロセス CWD を基準に解決されます。CI サンドボックスや非デフォルトの場所を固定したい場合に便利です。設定されている場合、tokscale は macOS のレガシーパス（`~/Library/Application Support/tokscale/`）にフォールバックしません。 |
 
 ```bash
 # 例：非常に大きなデータセット用にタイムアウトを増加

@@ -515,7 +515,7 @@ Environment variables override config file values. For CI/CD or one-off use:
 |----------|---------|-------------|
 | `TOKSCALE_NATIVE_TIMEOUT_MS` | `300000` (5 min) | Overrides `nativeTimeoutMs` config |
 | `TOKSCALE_EXTRA_DIRS` | unset | One-off extra session roots as `client:/abs/path,client:/abs/path` |
-| `TOKSCALE_CONFIG_DIR` | unset | Overrides the config directory (where `settings.json` lives). Absolute path. Useful for CI sandboxes or pinning a non-default location. |
+| `TOKSCALE_CONFIG_DIR` | unset | Overrides the config directory (where `settings.json` and `star-cache.json` live). Absolute path recommended; relative paths resolve against the process CWD. Useful for CI sandboxes or pinning a non-default location. When set, tokscale will not fall back to the legacy macOS `~/Library/Application Support/tokscale/` path. |
 
 ```bash
 # Example: Increase timeout for very large datasets

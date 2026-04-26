@@ -498,7 +498,7 @@ Tokscale은 설정을 `~/.config/tokscale/settings.json`에 저장합니다:
 | 변수 | 기본값 | 설명 |
 |----------|---------|-------------|
 | `TOKSCALE_NATIVE_TIMEOUT_MS` | `300000` (5분) | `nativeTimeoutMs` 설정 오버라이드 |
-| `TOKSCALE_CONFIG_DIR` | unset | 설정 디렉토리(`settings.json` 위치)를 오버라이드합니다. 절대 경로. CI 샌드박스나 비기본 위치를 고정할 때 유용합니다. |
+| `TOKSCALE_CONFIG_DIR` | unset | 설정 디렉토리(`settings.json` 및 `star-cache.json` 위치)를 오버라이드합니다. 절대 경로 권장; 상대 경로는 프로세스 CWD 기준으로 해석됩니다. CI 샌드박스나 비기본 위치를 고정할 때 유용합니다. 설정되면 tokscale은 macOS 레거시 경로(`~/Library/Application Support/tokscale/`)로 폴백하지 않습니다. |
 
 ```bash
 # 예시: 매우 큰 데이터셋에 대한 타임아웃 증가

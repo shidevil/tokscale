@@ -13,16 +13,22 @@ use std::path::PathBuf;
 /// Resolve the tokscale config dir, honoring `TOKSCALE_CONFIG_DIR` first.
 ///
 /// Resolution order:
-/// 1. `TOKSCALE_CONFIG_DIR` (absolute path, taken verbatim).
-/// 2. macOS / Linux: `$HOME/.config/tokscale`.
-/// 3. Windows (and any other platform): `dirs::config_dir().join("tokscale")`.
-/// 4. Last-ditch fallback: `./.tokscale` so a missing HOME never panics.
+/// 1. `TOKSCALE_CONFIG_DIR` taken verbatim. Absolute paths are recommended;
+///    relative paths are accepted and resolved against the process CWD.
+/// 2. macOS: `$HOME/.config/tokscale` (overrides `dirs::config_dir()`,
+///    which would return `~/Library/Application Support/` and split state
+///    across two roots — see module docs).
+/// 3. Linux: `dirs::config_dir().join("tokscale")` so XDG_CONFIG_HOME is
+///    honored. Falls through to `$HOME/.config/tokscale` when neither
+///    `XDG_CONFIG_HOME` nor `HOME` resolve.
+/// 4. Windows (and any other platform): `dirs::config_dir().join("tokscale")`.
+/// 5. Last-ditch fallback: `./.tokscale` so a missing HOME never panics.
 pub fn get_config_dir() -> PathBuf {
     if let Ok(custom) = std::env::var("TOKSCALE_CONFIG_DIR") {
         return PathBuf::from(custom);
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     {
         if let Some(home) = dirs::home_dir() {
             return home.join(".config").join("tokscale");
@@ -93,8 +99,10 @@ mod tests {
     fn unix_default_is_dot_config_tokscale_under_home() {
         let prev_override = env::var_os("TOKSCALE_CONFIG_DIR");
         let prev_home = env::var_os("HOME");
+        let prev_xdg = env::var_os("XDG_CONFIG_HOME");
         unsafe {
             env::remove_var("TOKSCALE_CONFIG_DIR");
+            env::remove_var("XDG_CONFIG_HOME");
             env::set_var("HOME", "/tmp/tokscale-home-test");
         }
         assert_eq!(
@@ -109,6 +117,39 @@ mod tests {
             match prev_home {
                 Some(v) => env::set_var("HOME", v),
                 None => env::remove_var("HOME"),
+            }
+            match prev_xdg {
+                Some(v) => env::set_var("XDG_CONFIG_HOME", v),
+                None => env::remove_var("XDG_CONFIG_HOME"),
+            }
+        }
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(target_os = "linux")]
+    fn linux_honors_xdg_config_home_when_set() {
+        // XDG_CONFIG_HOME is the documented way to relocate the user
+        // config directory on Linux. Hardcoding `$HOME/.config` would
+        // silently break setups that point this elsewhere.
+        let prev_override = env::var_os("TOKSCALE_CONFIG_DIR");
+        let prev_xdg = env::var_os("XDG_CONFIG_HOME");
+        unsafe {
+            env::remove_var("TOKSCALE_CONFIG_DIR");
+            env::set_var("XDG_CONFIG_HOME", "/tmp/tokscale-xdg-config");
+        }
+        assert_eq!(
+            get_config_dir(),
+            PathBuf::from("/tmp/tokscale-xdg-config/tokscale"),
+        );
+        unsafe {
+            match prev_override {
+                Some(v) => env::set_var("TOKSCALE_CONFIG_DIR", v),
+                None => env::remove_var("TOKSCALE_CONFIG_DIR"),
+            }
+            match prev_xdg {
+                Some(v) => env::set_var("XDG_CONFIG_HOME", v),
+                None => env::remove_var("XDG_CONFIG_HOME"),
             }
         }
     }
