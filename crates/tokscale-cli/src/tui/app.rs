@@ -33,6 +33,7 @@ pub struct TuiConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tab {
     Overview,
+    Usage,
     Models,
     Daily,
     Hourly,
@@ -44,6 +45,7 @@ impl Tab {
     pub fn all() -> &'static [Tab] {
         &[
             Tab::Overview,
+            Tab::Usage,
             Tab::Models,
             Tab::Daily,
             Tab::Hourly,
@@ -55,6 +57,7 @@ impl Tab {
     pub fn as_str(&self) -> &'static str {
         match self {
             Tab::Overview => "Overview",
+            Tab::Usage => "Usage",
             Tab::Models => "Models",
             Tab::Daily => "Daily",
             Tab::Hourly => "Hourly",
@@ -66,6 +69,7 @@ impl Tab {
     pub fn short_name(&self) -> &'static str {
         match self {
             Tab::Overview => "Ovw",
+            Tab::Usage => "Use",
             Tab::Models => "Mod",
             Tab::Daily => "Day",
             Tab::Hourly => "Hr",
@@ -76,7 +80,8 @@ impl Tab {
 
     pub fn next(self) -> Tab {
         match self {
-            Tab::Overview => Tab::Models,
+            Tab::Overview => Tab::Usage,
+            Tab::Usage => Tab::Models,
             Tab::Models => Tab::Daily,
             Tab::Daily => Tab::Hourly,
             Tab::Hourly => Tab::Stats,
@@ -88,7 +93,8 @@ impl Tab {
     pub fn prev(self) -> Tab {
         match self {
             Tab::Overview => Tab::Agents,
-            Tab::Models => Tab::Overview,
+            Tab::Usage => Tab::Overview,
+            Tab::Models => Tab::Usage,
             Tab::Daily => Tab::Models,
             Tab::Hourly => Tab::Daily,
             Tab::Stats => Tab::Hourly,
@@ -189,6 +195,8 @@ pub struct App {
     pub hourly_view_mode: HourlyViewMode,
 
     pub model_shade_map: HashMap<String, Color>,
+
+    pub subscription_usage: Vec<crate::commands::usage::UsageOutput>,
 }
 
 impl App {
@@ -277,6 +285,7 @@ impl App {
             dialog_needs_reload,
             hourly_view_mode: HourlyViewMode::default(),
             model_shade_map: HashMap::new(),
+            subscription_usage: Vec::new(),
         };
         app.build_model_shade_map();
         Ok(app)
@@ -430,6 +439,9 @@ impl App {
                     self.set_status("Refresh already in progress");
                 } else {
                     self.needs_reload = true;
+                    if self.current_tab == Tab::Usage {
+                        self.fetch_subscription_usage();
+                    }
                 }
             }
             KeyCode::Char('R') if key.modifiers.contains(KeyModifiers::SHIFT) => {
@@ -466,6 +478,9 @@ impl App {
             KeyCode::Char('g') => {
                 self.open_group_by_picker();
             }
+            KeyCode::Char('u') if self.current_tab == Tab::Usage => {
+                self.fetch_subscription_usage();
+            }
             KeyCode::Enter if self.current_tab == Tab::Stats => {
                 self.handle_graph_selection();
             }
@@ -478,6 +493,16 @@ impl App {
             _ => {}
         }
         false
+    }
+
+    pub fn fetch_subscription_usage(&mut self) {
+        self.subscription_usage = crate::commands::usage::fetch_all();
+        if !self.subscription_usage.is_empty() {
+            self.status_message = Some("Usage data loaded".into());
+        } else {
+            self.status_message = Some("No usage data available".into());
+        }
+        self.status_message_time = Some(std::time::Instant::now());
     }
 
     pub fn handle_mouse_event(&mut self, event: MouseEvent) {
@@ -580,6 +605,10 @@ impl App {
             .insert(self.current_tab, (self.sort_field, self.sort_direction));
 
         self.current_tab = target;
+
+        if target == Tab::Usage && self.subscription_usage.is_empty() {
+            self.fetch_subscription_usage();
+        }
 
         let (field, dir) =
             self.tab_sort_state
@@ -714,6 +743,11 @@ impl App {
                     0
                 }
             }
+            Tab::Usage => self
+                .subscription_usage
+                .iter()
+                .map(|u| u.metrics.len())
+                .sum(),
         }
     }
 
@@ -894,7 +928,7 @@ impl App {
                     h.cost
                 )
             }),
-            Tab::Stats => None,
+            Tab::Stats | Tab::Usage => None,
         };
 
         if let Some(text) = text {
