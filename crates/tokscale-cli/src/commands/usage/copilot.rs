@@ -43,9 +43,17 @@ fn read_token_from_keychain() -> Result<String> {
     }
 }
 
+fn gh_config_dir() -> std::path::PathBuf {
+    std::env::var("GH_CONFIG_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+            home.join(".config").join("gh")
+        })
+}
+
 fn read_token_from_hosts() -> Result<String> {
-    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    let path = home.join(".config").join("gh").join("hosts.yml");
+    let path = gh_config_dir().join("hosts.yml");
     if !path.exists() {
         anyhow::bail!("No gh hosts file");
     }
