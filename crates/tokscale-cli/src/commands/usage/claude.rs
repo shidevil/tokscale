@@ -47,6 +47,12 @@ fn read_keychain() -> Result<String> {
     super::helpers::read_keychain("Claude Code-credentials")
 }
 
+pub fn has_credentials() -> bool {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    home.join(".claude").join(".credentials.json").exists()
+        || super::helpers::read_keychain("Claude Code-credentials").is_ok()
+}
+
 fn read_credentials() -> Result<Credentials> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let path = home.join(".claude").join(".credentials.json");

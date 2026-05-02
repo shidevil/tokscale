@@ -66,6 +66,10 @@ async fn fetch_sub(client: &reqwest::Client, key: &str) -> Result<SubResp> {
     Ok(resp.json().await?)
 }
 
+pub fn has_credentials() -> bool {
+    std::env::var("ZAI_API_KEY").or_else(|_| std::env::var("GLM_API_KEY")).is_ok()
+}
+
 pub fn fetch() -> Result<UsageOutput> {
     let api_key = std::env::var("ZAI_API_KEY")
         .or_else(|_| std::env::var("GLM_API_KEY"))

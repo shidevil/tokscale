@@ -160,6 +160,13 @@ async fn fetch_api(client: &reqwest::Client, token: &str) -> Result<serde_json::
     Ok(resp.json().await?)
 }
 
+pub fn has_credentials() -> bool {
+    if super::helpers::read_keychain("gh:github.com").is_ok() {
+        return true;
+    }
+    gh_config_dir().join("hosts.yml").exists()
+}
+
 pub fn fetch() -> Result<UsageOutput> {
     let token = read_credentials()?;
 

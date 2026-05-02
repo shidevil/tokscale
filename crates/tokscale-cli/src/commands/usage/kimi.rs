@@ -143,6 +143,11 @@ fn parse_quota_detail(label: &str, detail: &QuotaDetail) -> Option<UsageMetric> 
     })
 }
 
+pub fn has_credentials() -> bool {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    home.join(".kimi").join("credentials").join("kimi-code.json").exists()
+}
+
 pub fn fetch() -> Result<UsageOutput> {
     let creds = read_credentials()?;
     let mut access_token = creds

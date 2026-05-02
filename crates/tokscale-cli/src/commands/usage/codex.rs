@@ -81,6 +81,22 @@ fn read_credentials() -> Result<Auth> {
     anyhow::bail!("No Codex credentials found. Run 'codex' to log in.")
 }
 
+pub fn has_credentials() -> bool {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
+        if std::path::PathBuf::from(codex_home).join("auth.json").exists() {
+            return true;
+        }
+    }
+    if home.join(".config").join("codex").join("auth.json").exists() {
+        return true;
+    }
+    if home.join(".codex").join("auth.json").exists() {
+        return true;
+    }
+    super::helpers::read_keychain("Codex Auth").is_ok()
+}
+
 async fn refresh_token(client: &reqwest::Client, rt: &str) -> Result<Refresh> {
     let resp = client
         .post("https://auth.openai.com/oauth/token")

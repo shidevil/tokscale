@@ -111,6 +111,11 @@ fn detect_plan(metrics: &[UsageMetric]) -> Option<String> {
     }
 }
 
+pub fn has_credentials() -> bool {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    home.join(".local").join("share").join("amp").join("secrets.json").exists()
+}
+
 pub fn fetch() -> Result<UsageOutput> {
     let api_key = read_credentials()?;
 

@@ -128,6 +128,10 @@ async fn fetch_api(client: &reqwest::Client, key: &str) -> Result<ApiResponse> {
     Ok(resp.json().await?)
 }
 
+pub fn has_credentials() -> bool {
+    std::env::var("MINIMAX_API_KEY").or_else(|_| std::env::var("MINIMAX_API_TOKEN")).is_ok()
+}
+
 pub fn fetch() -> Result<UsageOutput> {
     let api_key = read_api_key()?;
 

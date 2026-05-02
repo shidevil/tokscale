@@ -1471,6 +1471,9 @@ mod tests {
         assert_eq!(app.current_tab, Tab::Overview);
 
         app.handle_key_event(key(KeyCode::Tab));
+        assert_eq!(app.current_tab, Tab::Usage);
+
+        app.handle_key_event(key(KeyCode::Tab));
         assert_eq!(app.current_tab, Tab::Models);
 
         app.handle_key_event(key(KeyCode::Tab));
@@ -1508,6 +1511,12 @@ mod tests {
 
         app.handle_key_event(key(KeyCode::BackTab));
         assert_eq!(app.current_tab, Tab::Models);
+
+        app.handle_key_event(key(KeyCode::BackTab));
+        assert_eq!(app.current_tab, Tab::Usage);
+
+        app.handle_key_event(key(KeyCode::BackTab));
+        assert_eq!(app.current_tab, Tab::Overview);
     }
 
     #[test]
@@ -1590,10 +1599,13 @@ mod tests {
     fn test_handle_key_left_right_switch() {
         let mut app = make_app();
         app.handle_key_event(key(KeyCode::Right));
+        assert_eq!(app.current_tab, Tab::Usage);
+
+        app.handle_key_event(key(KeyCode::Right));
         assert_eq!(app.current_tab, Tab::Models);
 
         app.handle_key_event(key(KeyCode::Left));
-        assert_eq!(app.current_tab, Tab::Overview);
+        assert_eq!(app.current_tab, Tab::Usage);
     }
 
     #[test]
