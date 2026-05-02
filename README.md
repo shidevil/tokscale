@@ -107,6 +107,7 @@ In the age of AI-assisted development, **tokens are the new energy**. They power
   - [Social](#social)
   - [Cursor IDE Commands](#cursor-ide-commands)
   - [Antigravity Commands](#antigravity-commands)
+  - [Subscription Usage](#subscription-usage)
   - [Example Output](#example-output---light-version)
   - [Configuration](#configuration)
   - [Environment Variables](#environment-variables)
@@ -242,7 +243,7 @@ tokscale models --json > report.json   # Save to file
 
 The interactive TUI mode provides:
 
-- **6 Views**: Overview (chart + top models), Models, Daily, Hourly, Stats (contribution graph), Agents
+- **6 Views**: Overview (chart + top models), Usage (subscription quotas), Models, Daily, Hourly, Stats (contribution graph), Agents
 - **Keyboard Navigation**:
   - `1-6` or `←/→/Tab`: Switch views
   - `↑/↓`: Navigate lists
@@ -468,6 +469,53 @@ tokscale antigravity purge-cache
 **Cache location**: `~/.config/tokscale/antigravity-cache/`
 
 **How it works**: `tokscale antigravity sync` discovers local Antigravity session candidates, fetches confirmed usage data from the local language server RPC, and stores normalized JSONL artifacts for tokscale-core to parse later. Run sync before reports if you want the freshest Antigravity data.
+
+### Subscription Usage
+
+Tokscale can fetch and display your real-time subscription quota across AI providers. This shows how much of your plan you've used and when limits reset.
+
+```bash
+# Show subscription usage for all detected providers
+tokscale usage
+
+# Output as JSON (for scripting)
+tokscale usage --json
+
+# Lightweight terminal output (no TUI)
+tokscale usage --light
+```
+
+In the TUI, press `2` or navigate to the **Usage** tab to see subscription data. Press `u` or `r` to refresh.
+
+#### Supported Providers
+
+| Provider | Auth Method | Metrics | Setup |
+|----------|-------------|---------|-------|
+| **Claude** | OAuth (credentials file or macOS Keychain) | Session (5hr), Weekly, Opus quotas | Run `claude` to log in |
+| **Codex** (OpenAI) | OAuth (`~/.config/codex/auth.json` or `~/.codex/auth.json`) | Session, Weekly quotas | Run `codex` to log in |
+| **Z.ai** | API key (env var) | Token limits, Web Searches | Set `ZAI_API_KEY` or `GLM_API_KEY` |
+| **Amp** | API key (`~/.local/share/amp/secrets.json`) | Free tier balance, Credits | Run `amp` to log in |
+| **GitHub Copilot** | GitHub token (keychain or `~/.config/gh/hosts.yml`) | Premium interactions, Chat quotas | Run `gh auth login` |
+| **Kimi** | OAuth (`~/.kimi/credentials/kimi-code.json`) | Session, Weekly quotas | Run `kimi` to log in |
+| **MiniMax** | API key (env var) | Prompt quotas per model | Set `MINIMAX_API_KEY` or `MINIMAX_API_TOKEN` |
+
+Providers are auto-detected — only those with valid credentials are shown. If a provider is missing, ensure you've logged in or set the required environment variable.
+
+#### Example Output
+
+```
+╭──────────────────────────────────────────────────────────╮
+│ Session    85% left  [=========---] resets in 2h 15m     │
+│ Weekly     72% left  [========----] resets Fri 3pm       │
+│ Plan     Max 20x                                         │
+╰──────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────╮
+│ Session    40% left  [=====-------] resets in 4h 30m     │
+│ Weekly     90% left  [==========--] resets Mon 12am      │
+│ Account  user@example.com                                │
+│ Plan     Pro                                             │
+╰──────────────────────────────────────────────────────────╯
+```
 
 ### Example Output (`--light` version)
 
