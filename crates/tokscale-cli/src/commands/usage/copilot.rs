@@ -66,14 +66,15 @@ fn read_token_from_hosts() -> Result<String> {
             in_github = true;
             continue;
         }
+        // A non-indented, non-empty, non-comment line starts a new section
+        if in_github && !line.starts_with(' ') && !line.starts_with('\t') && !trimmed.is_empty() && !trimmed.starts_with('#') {
+            in_github = false;
+        }
         if in_github && trimmed.starts_with("oauth_token:") {
             let token = trimmed.trim_start_matches("oauth_token:").trim();
             if !token.is_empty() {
                 return Ok(token.to_string());
             }
-        }
-        if in_github && !trimmed.is_empty() && !trimmed.starts_with("oauth_token") && !trimmed.starts_with('#') {
-            in_github = false;
         }
     }
     anyhow::bail!("No oauth_token found in hosts.yml")

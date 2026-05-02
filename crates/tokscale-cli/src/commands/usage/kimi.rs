@@ -95,10 +95,11 @@ fn needs_refresh(expires_at: Option<f64>) -> bool {
 async fn refresh_token(client: &reqwest::Client, rt: &str) -> Result<RefreshResponse> {
     let resp = client
         .post("https://auth.kimi.com/api/oauth/token")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(format!(
-            "client_id={CLIENT_ID}&grant_type=refresh_token&refresh_token={rt}"
-        ))
+        .form(&[
+            ("client_id", CLIENT_ID),
+            ("grant_type", "refresh_token"),
+            ("refresh_token", rt),
+        ])
         .send()
         .await?;
     if !resp.status().is_success() {

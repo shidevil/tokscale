@@ -1124,18 +1124,20 @@ mod tests {
     #[test]
     fn test_tab_all() {
         let tabs = Tab::all();
-        assert_eq!(tabs.len(), 6);
+        assert_eq!(tabs.len(), 7);
         assert_eq!(tabs[0], Tab::Overview);
-        assert_eq!(tabs[1], Tab::Models);
-        assert_eq!(tabs[2], Tab::Daily);
-        assert_eq!(tabs[3], Tab::Hourly);
-        assert_eq!(tabs[4], Tab::Stats);
-        assert_eq!(tabs[5], Tab::Agents);
+        assert_eq!(tabs[1], Tab::Usage);
+        assert_eq!(tabs[2], Tab::Models);
+        assert_eq!(tabs[3], Tab::Daily);
+        assert_eq!(tabs[4], Tab::Hourly);
+        assert_eq!(tabs[5], Tab::Stats);
+        assert_eq!(tabs[6], Tab::Agents);
     }
 
     #[test]
     fn test_tab_next() {
-        assert_eq!(Tab::Overview.next(), Tab::Models);
+        assert_eq!(Tab::Overview.next(), Tab::Usage);
+        assert_eq!(Tab::Usage.next(), Tab::Models);
         assert_eq!(Tab::Models.next(), Tab::Daily);
         assert_eq!(Tab::Daily.next(), Tab::Hourly);
         assert_eq!(Tab::Hourly.next(), Tab::Stats);
@@ -1146,7 +1148,8 @@ mod tests {
     #[test]
     fn test_tab_prev() {
         assert_eq!(Tab::Overview.prev(), Tab::Agents);
-        assert_eq!(Tab::Models.prev(), Tab::Overview);
+        assert_eq!(Tab::Usage.prev(), Tab::Overview);
+        assert_eq!(Tab::Models.prev(), Tab::Usage);
         assert_eq!(Tab::Daily.prev(), Tab::Models);
         assert_eq!(Tab::Hourly.prev(), Tab::Daily);
         assert_eq!(Tab::Stats.prev(), Tab::Hourly);

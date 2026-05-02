@@ -10,6 +10,9 @@ pub fn capitalize(s: &str) -> String {
 }
 
 pub fn read_keychain(service: &str) -> Result<String> {
+    if cfg!(not(target_os = "macos")) {
+        anyhow::bail!("Keychain lookup is only available on macOS");
+    }
     let out = std::process::Command::new("security")
         .args(["find-generic-password", "-s", service, "-w"])
         .output()?;

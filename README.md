@@ -243,9 +243,9 @@ tokscale models --json > report.json   # Save to file
 
 The interactive TUI mode provides:
 
-- **6 Views**: Overview (chart + top models), Usage (subscription quotas), Models, Daily, Hourly, Stats (contribution graph), Agents
+- **7 Views**: Overview (chart + top models), Usage (subscription quotas), Models, Daily, Hourly, Stats (contribution graph), Agents
 - **Keyboard Navigation**:
-  - `1-6` or `←/→/Tab`: Switch views
+  - `←/→/Tab`: Switch views
   - `↑/↓`: Navigate lists
   - `c/d/t`: Sort by cost/date/tokens
   - `s`: Open source picker dialog

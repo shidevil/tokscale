@@ -84,10 +84,11 @@ fn read_credentials() -> Result<Auth> {
 async fn refresh_token(client: &reqwest::Client, rt: &str) -> Result<Refresh> {
     let resp = client
         .post("https://auth.openai.com/oauth/token")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(format!(
-            "grant_type=refresh_token&client_id={CLIENT_ID}&refresh_token={rt}"
-        ))
+        .form(&[
+            ("grant_type", "refresh_token"),
+            ("client_id", CLIENT_ID),
+            ("refresh_token", rt),
+        ])
         .send()
         .await?;
     if !resp.status().is_success() {
