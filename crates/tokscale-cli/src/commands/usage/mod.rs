@@ -112,7 +112,7 @@ pub fn fetch_all() -> Vec<UsageOutput> {
 // ── Light-mode rendering ──
 
 const BAR_WIDTH: usize = 12;
-const CARD_WIDTH: usize = 58;
+const CARD_WIDTH: usize = 62;
 
 fn render_light(output: &UsageOutput) {
     println!("╭{}╮", "─".repeat(CARD_WIDTH));
@@ -120,7 +120,7 @@ fn render_light(output: &UsageOutput) {
         let rem = m.remaining_label.clone().unwrap_or_else(|| format!("{:.0}% left", m.remaining_percent));
         let bar = helpers::render_ascii_bar(m.remaining_percent, BAR_WIDTH);
         let reset = m.resets_at.as_ref().map(|r| helpers::format_reset_time(r)).unwrap_or_default();
-        println!("│ {:<10}{:<11}{:<14}{:<20}│", m.label, rem, bar, reset);
+        println!("│ {:<14}{:<11}{:<14}{:<20}│", m.label, rem, bar, reset);
     }
     if let Some(ref email) = output.email {
         println!("│ {:<width$}│", format!("Account  {email}"), width = CARD_WIDTH);

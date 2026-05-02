@@ -120,7 +120,7 @@ fn render_loaded(frame: &mut Frame, app: &App, area: Rect, outputs: &[crate::com
                 .unwrap_or_default();
 
             let label = Span::styled(
-                format!(" {:<12}", m.label),
+                format!(" {:<14}", m.label),
                 Style::default().fg(app.theme.foreground),
             );
             let value = Span::styled(
