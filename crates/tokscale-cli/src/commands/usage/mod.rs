@@ -11,7 +11,7 @@ use anyhow::Result;
 
 // ── Shared types ──
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UsageMetric {
     pub label: String,
     pub used_percent: f64,
@@ -20,7 +20,7 @@ pub struct UsageMetric {
     pub resets_at: Option<String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UsageOutput {
     pub provider: String,
     pub plan: Option<String>,
@@ -28,35 +28,91 @@ pub struct UsageOutput {
     pub metrics: Vec<UsageMetric>,
 }
 
+// ── Cache ──
+
+fn cache_path() -> Option<std::path::PathBuf> {
+    let dir = crate::paths::get_cache_dir();
+    if std::fs::create_dir_all(&dir).is_err() {
+        return None;
+    }
+    Some(dir.join("subscription-usage-cache.json"))
+}
+
+pub fn save_cache(data: &[UsageOutput]) {
+    let Some(path) = cache_path() else { return };
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let json = serde_json::json!({
+        "timestamp": timestamp,
+        "data": data,
+    });
+    let _ = std::fs::write(&path, serde_json::to_string(&json).unwrap_or_default());
+}
+
+pub fn load_cache() -> Option<Vec<UsageOutput>> {
+    let path = cache_path()?;
+    let content = std::fs::read_to_string(&path).ok()?;
+    let doc: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let timestamp = doc.get("timestamp")?.as_u64()?;
+    let age = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+        .saturating_sub(timestamp);
+    // Cache expires after 5 minutes
+    if age > 300 {
+        return None;
+    }
+    serde_json::from_value(doc.get("data")?.clone()).ok()
+}
+
 // ── Public API ──
 
 pub fn fetch_all() -> Vec<UsageOutput> {
-    let mut results = Vec::new();
+    let providers: Vec<(&str, fn() -> bool, fn() -> Result<UsageOutput>)> = vec![
+        ("Claude", claude::has_credentials, claude::fetch),
+        ("Codex", codex::has_credentials, codex::fetch),
+        ("Z.ai", zai::has_credentials, zai::fetch),
+        ("Amp", amp::has_credentials, amp::fetch),
+        ("Copilot", copilot::has_credentials, copilot::fetch),
+        ("Kimi", kimi::has_credentials, kimi::fetch),
+        ("MiniMax", minimax::has_credentials, minimax::fetch),
+    ];
 
-    macro_rules! try_fetch {
-        ($name:expr, $func:expr) => {
-            match $func() {
-                Ok(o) => results.push(o),
-                Err(e) => eprintln!("{}: {e}", $name),
-            }
-        };
+    let active: Vec<_> = providers
+        .into_iter()
+        .filter(|(_, has, _)| has())
+        .collect();
+
+    if active.is_empty() {
+        return vec![];
     }
 
-    try_fetch!("Claude", claude::fetch);
-    try_fetch!("Codex", codex::fetch);
-    try_fetch!("Z.ai", zai::fetch);
-    try_fetch!("Amp", amp::fetch);
-    try_fetch!("Copilot", copilot::fetch);
-    try_fetch!("Kimi", kimi::fetch);
-    try_fetch!("MiniMax", minimax::fetch);
-
-    results
+    std::thread::scope(|s| {
+        active
+            .into_iter()
+            .map(|(name, _, fetch)| {
+                s.spawn(move || match fetch() {
+                    Ok(o) => Some(o),
+                    Err(e) => {
+                        eprintln!("{name}: {e}");
+                        None
+                    }
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .filter_map(|h| h.join().ok().flatten())
+            .collect()
+    })
 }
 
 // ── Light-mode rendering ──
 
 const BAR_WIDTH: usize = 12;
-const CARD_WIDTH: usize = 58;
+const CARD_WIDTH: usize = 62;
 
 fn render_light(output: &UsageOutput) {
     println!("╭{}╮", "─".repeat(CARD_WIDTH));
@@ -64,7 +120,7 @@ fn render_light(output: &UsageOutput) {
         let rem = m.remaining_label.clone().unwrap_or_else(|| format!("{:.0}% left", m.remaining_percent));
         let bar = helpers::render_ascii_bar(m.remaining_percent, BAR_WIDTH);
         let reset = m.resets_at.as_ref().map(|r| helpers::format_reset_time(r)).unwrap_or_default();
-        println!("│ {:<10}{:<11}{:<14}{:<20}│", m.label, rem, bar, reset);
+        println!("│ {:<14}{:<11}{:<14}{:<20}│", m.label, rem, bar, reset);
     }
     if let Some(ref email) = output.email {
         println!("│ {:<width$}│", format!("Account  {email}"), width = CARD_WIDTH);

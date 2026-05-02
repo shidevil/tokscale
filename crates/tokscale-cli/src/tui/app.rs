@@ -285,7 +285,7 @@ impl App {
             dialog_needs_reload,
             hourly_view_mode: HourlyViewMode::default(),
             model_shade_map: HashMap::new(),
-            subscription_usage: Vec::new(),
+            subscription_usage: crate::commands::usage::load_cache().unwrap_or_default(),
         };
         app.build_model_shade_map();
         Ok(app)
@@ -498,6 +498,7 @@ impl App {
     pub fn fetch_subscription_usage(&mut self) {
         self.subscription_usage = crate::commands::usage::fetch_all();
         if !self.subscription_usage.is_empty() {
+            crate::commands::usage::save_cache(&self.subscription_usage);
             self.status_message = Some("Usage data loaded".into());
         } else {
             self.status_message = Some("No usage data available".into());
@@ -1124,18 +1125,20 @@ mod tests {
     #[test]
     fn test_tab_all() {
         let tabs = Tab::all();
-        assert_eq!(tabs.len(), 6);
+        assert_eq!(tabs.len(), 7);
         assert_eq!(tabs[0], Tab::Overview);
-        assert_eq!(tabs[1], Tab::Models);
-        assert_eq!(tabs[2], Tab::Daily);
-        assert_eq!(tabs[3], Tab::Hourly);
-        assert_eq!(tabs[4], Tab::Stats);
-        assert_eq!(tabs[5], Tab::Agents);
+        assert_eq!(tabs[1], Tab::Usage);
+        assert_eq!(tabs[2], Tab::Models);
+        assert_eq!(tabs[3], Tab::Daily);
+        assert_eq!(tabs[4], Tab::Hourly);
+        assert_eq!(tabs[5], Tab::Stats);
+        assert_eq!(tabs[6], Tab::Agents);
     }
 
     #[test]
     fn test_tab_next() {
-        assert_eq!(Tab::Overview.next(), Tab::Models);
+        assert_eq!(Tab::Overview.next(), Tab::Usage);
+        assert_eq!(Tab::Usage.next(), Tab::Models);
         assert_eq!(Tab::Models.next(), Tab::Daily);
         assert_eq!(Tab::Daily.next(), Tab::Hourly);
         assert_eq!(Tab::Hourly.next(), Tab::Stats);
@@ -1146,7 +1149,8 @@ mod tests {
     #[test]
     fn test_tab_prev() {
         assert_eq!(Tab::Overview.prev(), Tab::Agents);
-        assert_eq!(Tab::Models.prev(), Tab::Overview);
+        assert_eq!(Tab::Usage.prev(), Tab::Overview);
+        assert_eq!(Tab::Models.prev(), Tab::Usage);
         assert_eq!(Tab::Daily.prev(), Tab::Models);
         assert_eq!(Tab::Hourly.prev(), Tab::Daily);
         assert_eq!(Tab::Stats.prev(), Tab::Hourly);
@@ -1468,6 +1472,9 @@ mod tests {
         assert_eq!(app.current_tab, Tab::Overview);
 
         app.handle_key_event(key(KeyCode::Tab));
+        assert_eq!(app.current_tab, Tab::Usage);
+
+        app.handle_key_event(key(KeyCode::Tab));
         assert_eq!(app.current_tab, Tab::Models);
 
         app.handle_key_event(key(KeyCode::Tab));
@@ -1505,6 +1512,12 @@ mod tests {
 
         app.handle_key_event(key(KeyCode::BackTab));
         assert_eq!(app.current_tab, Tab::Models);
+
+        app.handle_key_event(key(KeyCode::BackTab));
+        assert_eq!(app.current_tab, Tab::Usage);
+
+        app.handle_key_event(key(KeyCode::BackTab));
+        assert_eq!(app.current_tab, Tab::Overview);
     }
 
     #[test]
@@ -1587,10 +1600,13 @@ mod tests {
     fn test_handle_key_left_right_switch() {
         let mut app = make_app();
         app.handle_key_event(key(KeyCode::Right));
+        assert_eq!(app.current_tab, Tab::Usage);
+
+        app.handle_key_event(key(KeyCode::Right));
         assert_eq!(app.current_tab, Tab::Models);
 
         app.handle_key_event(key(KeyCode::Left));
-        assert_eq!(app.current_tab, Tab::Overview);
+        assert_eq!(app.current_tab, Tab::Usage);
     }
 
     #[test]

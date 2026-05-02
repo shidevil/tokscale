@@ -14,6 +14,13 @@ struct Credentials {
 }
 
 #[derive(Debug, Deserialize)]
+struct RefreshResponse {
+    access_token: Option<String>,
+    refresh_token: Option<String>,
+    expires_in: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
 struct UsageResponse {
     usage: Option<QuotaDetail>,
     limits: Option<Vec<LimitEntry>>,
@@ -52,15 +59,6 @@ struct Membership {
     level: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct RefreshResponse {
-    access_token: Option<String>,
-    #[allow(dead_code)]
-    refresh_token: Option<String>,
-    #[allow(dead_code)]
-    expires_in: Option<i64>,
-}
-
 fn read_credentials() -> Result<Credentials> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let path = home.join(".kimi").join("credentials").join("kimi-code.json");
@@ -69,6 +67,20 @@ fn read_credentials() -> Result<Credentials> {
     }
     let content = std::fs::read_to_string(&path)?;
     Ok(serde_json::from_str(&content)?)
+}
+
+fn save_credentials(access_token: &str, refresh_token: &str, expires_in: i64) {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    let path = home.join(".kimi").join("credentials").join("kimi-code.json");
+    let expires_at = chrono::Utc::now().timestamp() as f64 + expires_in as f64;
+    let json = serde_json::json!({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires_at": expires_at,
+        "scope": "kimi-code",
+        "token_type": "Bearer"
+    });
+    let _ = std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap_or_default());
 }
 
 fn needs_refresh(expires_at: Option<f64>) -> bool {
@@ -83,10 +95,11 @@ fn needs_refresh(expires_at: Option<f64>) -> bool {
 async fn refresh_token(client: &reqwest::Client, rt: &str) -> Result<RefreshResponse> {
     let resp = client
         .post("https://auth.kimi.com/api/oauth/token")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(format!(
-            "client_id={CLIENT_ID}&grant_type=refresh_token&refresh_token={rt}"
-        ))
+        .form(&[
+            ("client_id", CLIENT_ID),
+            ("grant_type", "refresh_token"),
+            ("refresh_token", rt),
+        ])
         .send()
         .await?;
     if !resp.status().is_success() {
@@ -130,6 +143,11 @@ fn parse_quota_detail(label: &str, detail: &QuotaDetail) -> Option<UsageMetric> 
     })
 }
 
+pub fn has_credentials() -> bool {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    home.join(".kimi").join("credentials").join("kimi-code.json").exists()
+}
+
 pub fn fetch() -> Result<UsageOutput> {
     let creds = read_credentials()?;
     let mut access_token = creds
@@ -147,8 +165,11 @@ pub fn fetch() -> Result<UsageOutput> {
         if needs_refresh(expires_at) {
             if let Some(ref rt_str) = stored_refresh_token {
                 if let Ok(refreshed) = refresh_token(&client, rt_str).await {
-                    if let Some(new_token) = refreshed.access_token {
+                    if let Some(new_token) = refreshed.access_token.clone() {
                         access_token = new_token;
+                        if let (Some(new_rt), Some(expires_in)) = (&refreshed.refresh_token, refreshed.expires_in) {
+                            save_credentials(&access_token, new_rt, expires_in);
+                        }
                     }
                 }
             }
@@ -163,7 +184,11 @@ pub fn fetch() -> Result<UsageOutput> {
                 let refreshed = refresh_token(&client, rt_str).await?;
                 let new = refreshed
                     .access_token
+                    .clone()
                     .ok_or_else(|| anyhow::anyhow!("Refresh returned no token."))?;
+                if let (Some(new_rt), Some(expires_in)) = (&refreshed.refresh_token, refreshed.expires_in) {
+                    save_credentials(&new, new_rt, expires_in);
+                }
                 fetch_usage(&client, &new).await?
             }
             Err(e) => return Err(e),

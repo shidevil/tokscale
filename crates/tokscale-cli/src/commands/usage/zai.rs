@@ -66,6 +66,10 @@ async fn fetch_sub(client: &reqwest::Client, key: &str) -> Result<SubResp> {
     Ok(resp.json().await?)
 }
 
+pub fn has_credentials() -> bool {
+    std::env::var("ZAI_API_KEY").or_else(|_| std::env::var("GLM_API_KEY")).is_ok()
+}
+
 pub fn fetch() -> Result<UsageOutput> {
     let api_key = std::env::var("ZAI_API_KEY")
         .or_else(|_| std::env::var("GLM_API_KEY"))
@@ -84,30 +88,37 @@ pub fn fetch() -> Result<UsageOutput> {
             .and_then(|s| s.product_name.clone())
             .or_else(|| quota.data.as_ref().and_then(|d| d.level.clone()).map(|l| capitalize(&l)));
 
-        let mut metrics = Vec::new();
+        let mut session_metric = None;
+        let mut weekly_metric = None;
+        let mut search_metric = None;
+
         if let Some(ref limits) = quota.data.as_ref().and_then(|d| d.limits.as_ref()) {
             for limit in limits.iter() {
                 let pct = limit.percentage.unwrap_or(0.0).clamp(0.0, 100.0);
 
                 match limit.limit_type.as_deref() {
                     Some("TOKENS_LIMIT") => {
-                        let label = match (limit.unit, limit.number) {
-                            (Some(3), Some(5)) => "Session",
-                            (Some(6), Some(1)) => "Monthly",
-                            _ => "Tokens",
-                        };
-                        metrics.push(UsageMetric {
-                            label: label.into(),
+                        let metric = UsageMetric {
+                            label: String::new(),
                             used_percent: pct,
                             remaining_percent: 100.0 - pct,
                             remaining_label: None,
                             resets_at: None,
-                        });
+                        };
+                        match (limit.unit, limit.number) {
+                            (Some(3), Some(5)) => {
+                                session_metric = Some(UsageMetric { label: "Session".into(), ..metric });
+                            }
+                            (Some(6), Some(1)) => {
+                                weekly_metric = Some(UsageMetric { label: "Weekly".into(), ..metric });
+                            }
+                            _ => {}
+                        }
                     }
                     Some("TIME_LIMIT") => {
                         let remaining_label = limit.remaining.map(|r| format!("{:.0} left", r));
-                        metrics.push(UsageMetric {
-                            label: "Web Searches".into(),
+                        search_metric = Some(UsageMetric {
+                            label: "Web Search".into(),
                             used_percent: pct,
                             remaining_percent: 100.0 - pct,
                             remaining_label,
@@ -122,6 +133,11 @@ pub fn fetch() -> Result<UsageOutput> {
                 }
             }
         }
+
+        let mut metrics = Vec::new();
+        if let Some(m) = session_metric { metrics.push(m); }
+        if let Some(m) = weekly_metric { metrics.push(m); }
+        if let Some(m) = search_metric { metrics.push(m); }
 
         Ok(UsageOutput {
             provider: "Z.ai".into(),

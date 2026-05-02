@@ -48,30 +48,63 @@ struct Refresh {
 
 fn read_credentials() -> Result<Auth> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    let paths = [
-        home.join(".config").join("codex").join("auth.json"),
-        home.join(".codex").join("auth.json"),
-    ];
+    let mut paths: Vec<std::path::PathBuf> = Vec::new();
+
+    // CODEX_HOME takes precedence
+    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
+        paths.push(std::path::PathBuf::from(codex_home).join("auth.json"));
+    }
+    paths.push(home.join(".config").join("codex").join("auth.json"));
+    paths.push(home.join(".codex").join("auth.json"));
+
     for p in &paths {
         if p.exists() {
             let content = std::fs::read_to_string(p)?;
             if let Ok(auth) = serde_json::from_str::<Auth>(&content) {
-                if auth.tokens.is_some() {
+                // Only accept if tokens contains a usable access_token
+                if auth.tokens.as_ref().and_then(|t| t.access_token.as_ref()).is_some() {
                     return Ok(auth);
                 }
             }
         }
     }
+
+    // macOS keychain fallback
+    if let Ok(raw) = super::helpers::read_keychain("Codex Auth") {
+        if let Ok(auth) = serde_json::from_str::<Auth>(&raw) {
+            if auth.tokens.as_ref().and_then(|t| t.access_token.as_ref()).is_some() {
+                return Ok(auth);
+            }
+        }
+    }
+
     anyhow::bail!("No Codex credentials found. Run 'codex' to log in.")
+}
+
+pub fn has_credentials() -> bool {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
+        if std::path::PathBuf::from(codex_home).join("auth.json").exists() {
+            return true;
+        }
+    }
+    if home.join(".config").join("codex").join("auth.json").exists() {
+        return true;
+    }
+    if home.join(".codex").join("auth.json").exists() {
+        return true;
+    }
+    super::helpers::read_keychain("Codex Auth").is_ok()
 }
 
 async fn refresh_token(client: &reqwest::Client, rt: &str) -> Result<Refresh> {
     let resp = client
         .post("https://auth.openai.com/oauth/token")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(format!(
-            "grant_type=refresh_token&client_id={CLIENT_ID}&refresh_token={rt}"
-        ))
+        .form(&[
+            ("grant_type", "refresh_token"),
+            ("client_id", CLIENT_ID),
+            ("refresh_token", rt),
+        ])
         .send()
         .await?;
     if !resp.status().is_success() {

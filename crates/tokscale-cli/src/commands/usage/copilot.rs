@@ -43,9 +43,17 @@ fn read_token_from_keychain() -> Result<String> {
     }
 }
 
+fn gh_config_dir() -> std::path::PathBuf {
+    std::env::var("GH_CONFIG_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+            home.join(".config").join("gh")
+        })
+}
+
 fn read_token_from_hosts() -> Result<String> {
-    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    let path = home.join(".config").join("gh").join("hosts.yml");
+    let path = gh_config_dir().join("hosts.yml");
     if !path.exists() {
         anyhow::bail!("No gh hosts file");
     }
@@ -58,14 +66,15 @@ fn read_token_from_hosts() -> Result<String> {
             in_github = true;
             continue;
         }
+        // A non-indented, non-empty, non-comment line starts a new section
+        if in_github && !line.starts_with(' ') && !line.starts_with('\t') && !trimmed.is_empty() && !trimmed.starts_with('#') {
+            in_github = false;
+        }
         if in_github && trimmed.starts_with("oauth_token:") {
             let token = trimmed.trim_start_matches("oauth_token:").trim();
             if !token.is_empty() {
                 return Ok(token.to_string());
             }
-        }
-        if in_github && !trimmed.is_empty() && !trimmed.starts_with("oauth_token") && !trimmed.starts_with('#') {
-            in_github = false;
         }
     }
     anyhow::bail!("No oauth_token found in hosts.yml")
@@ -149,6 +158,13 @@ async fn fetch_api(client: &reqwest::Client, token: &str) -> Result<serde_json::
         anyhow::bail!("Copilot usage request failed (HTTP {status})");
     }
     Ok(resp.json().await?)
+}
+
+pub fn has_credentials() -> bool {
+    if super::helpers::read_keychain("gh:github.com").is_ok() {
+        return true;
+    }
+    gh_config_dir().join("hosts.yml").exists()
 }
 
 pub fn fetch() -> Result<UsageOutput> {

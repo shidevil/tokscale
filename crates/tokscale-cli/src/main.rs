@@ -588,6 +588,7 @@ fn main() -> Result<()> {
             run_antigravity_command(subcommand)
         }
         Some(Commands::Usage { json, light }) => {
+            reject_unsupported_home_override(&cli.home, "usage")?;
             commands::usage::run(json, light)
         }
         Some(Commands::DeleteSubmittedData) => {

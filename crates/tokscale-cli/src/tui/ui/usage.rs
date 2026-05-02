@@ -53,6 +53,8 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     if app.subscription_usage.is_empty() {
         render_loading(frame, app, inner);
+    } else if app.subscription_usage.iter().all(|o| o.metrics.is_empty()) {
+        render_empty(frame, app, inner);
     } else {
         render_loaded(frame, app, inner, &app.subscription_usage);
     }
@@ -74,6 +76,22 @@ fn render_loading(frame: &mut Frame, app: &App, area: Rect) {
         "Press 'u' to fetch subscription usage"
     };
     let paragraph = Paragraph::new(msg)
+        .style(Style::default().fg(app.theme.muted))
+        .alignment(Alignment::Center);
+    frame.render_widget(paragraph, center);
+}
+
+fn render_empty(frame: &mut Frame, app: &App, area: Rect) {
+    let center = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(40),
+            Constraint::Length(3),
+            Constraint::Percentage(40),
+        ])
+        .split(area)[1];
+
+    let paragraph = Paragraph::new("No subscription data available")
         .style(Style::default().fg(app.theme.muted))
         .alignment(Alignment::Center);
     frame.render_widget(paragraph, center);
@@ -102,7 +120,7 @@ fn render_loaded(frame: &mut Frame, app: &App, area: Rect, outputs: &[crate::com
                 .unwrap_or_default();
 
             let label = Span::styled(
-                format!(" {:<12}", m.label),
+                format!(" {:<14}", m.label),
                 Style::default().fg(app.theme.foreground),
             );
             let value = Span::styled(
