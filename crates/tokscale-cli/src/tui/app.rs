@@ -285,7 +285,7 @@ impl App {
             dialog_needs_reload,
             hourly_view_mode: HourlyViewMode::default(),
             model_shade_map: HashMap::new(),
-            subscription_usage: Vec::new(),
+            subscription_usage: crate::commands::usage::load_cache().unwrap_or_default(),
         };
         app.build_model_shade_map();
         Ok(app)
@@ -498,6 +498,7 @@ impl App {
     pub fn fetch_subscription_usage(&mut self) {
         self.subscription_usage = crate::commands::usage::fetch_all();
         if !self.subscription_usage.is_empty() {
+            crate::commands::usage::save_cache(&self.subscription_usage);
             self.status_message = Some("Usage data loaded".into());
         } else {
             self.status_message = Some("No usage data available".into());

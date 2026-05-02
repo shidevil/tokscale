@@ -11,7 +11,7 @@ use anyhow::Result;
 
 // ── Shared types ──
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UsageMetric {
     pub label: String,
     pub used_percent: f64,
@@ -20,12 +20,52 @@ pub struct UsageMetric {
     pub resets_at: Option<String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UsageOutput {
     pub provider: String,
     pub plan: Option<String>,
     pub email: Option<String>,
     pub metrics: Vec<UsageMetric>,
+}
+
+// ── Cache ──
+
+fn cache_path() -> Option<std::path::PathBuf> {
+    let dir = crate::paths::get_cache_dir();
+    if std::fs::create_dir_all(&dir).is_err() {
+        return None;
+    }
+    Some(dir.join("subscription-usage-cache.json"))
+}
+
+pub fn save_cache(data: &[UsageOutput]) {
+    let Some(path) = cache_path() else { return };
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let json = serde_json::json!({
+        "timestamp": timestamp,
+        "data": data,
+    });
+    let _ = std::fs::write(&path, serde_json::to_string(&json).unwrap_or_default());
+}
+
+pub fn load_cache() -> Option<Vec<UsageOutput>> {
+    let path = cache_path()?;
+    let content = std::fs::read_to_string(&path).ok()?;
+    let doc: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let timestamp = doc.get("timestamp")?.as_u64()?;
+    let age = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+        .saturating_sub(timestamp);
+    // Cache expires after 5 minutes
+    if age > 300 {
+        return None;
+    }
+    serde_json::from_value(doc.get("data")?.clone()).ok()
 }
 
 // ── Public API ──
