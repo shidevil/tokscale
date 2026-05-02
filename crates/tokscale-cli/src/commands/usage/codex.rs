@@ -48,20 +48,36 @@ struct Refresh {
 
 fn read_credentials() -> Result<Auth> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    let paths = [
-        home.join(".config").join("codex").join("auth.json"),
-        home.join(".codex").join("auth.json"),
-    ];
+    let mut paths: Vec<std::path::PathBuf> = Vec::new();
+
+    // CODEX_HOME takes precedence
+    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
+        paths.push(std::path::PathBuf::from(codex_home).join("auth.json"));
+    }
+    paths.push(home.join(".config").join("codex").join("auth.json"));
+    paths.push(home.join(".codex").join("auth.json"));
+
     for p in &paths {
         if p.exists() {
             let content = std::fs::read_to_string(p)?;
             if let Ok(auth) = serde_json::from_str::<Auth>(&content) {
-                if auth.tokens.is_some() {
+                // Only accept if tokens contains a usable access_token
+                if auth.tokens.as_ref().and_then(|t| t.access_token.as_ref()).is_some() {
                     return Ok(auth);
                 }
             }
         }
     }
+
+    // macOS keychain fallback
+    if let Ok(raw) = super::helpers::read_keychain("Codex Auth") {
+        if let Ok(auth) = serde_json::from_str::<Auth>(&raw) {
+            if auth.tokens.as_ref().and_then(|t| t.access_token.as_ref()).is_some() {
+                return Ok(auth);
+            }
+        }
+    }
+
     anyhow::bail!("No Codex credentials found. Run 'codex' to log in.")
 }
 
