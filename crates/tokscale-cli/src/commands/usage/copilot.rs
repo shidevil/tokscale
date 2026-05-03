@@ -44,12 +44,20 @@ fn read_token_from_keychain() -> Result<String> {
 }
 
 fn gh_config_dir() -> std::path::PathBuf {
-    std::env::var("GH_CONFIG_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| {
-            let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-            home.join(".config").join("gh")
-        })
+    if let Ok(dir) = std::env::var("GH_CONFIG_DIR") {
+        return std::path::PathBuf::from(dir);
+    }
+    if let Ok(dir) = std::env::var("XDG_CONFIG_HOME") {
+        return std::path::PathBuf::from(dir).join("gh");
+    }
+    if cfg!(windows) {
+        return std::env::var_os("APPDATA")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from(".")))
+            .join("GitHub CLI");
+    }
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    home.join(".config").join("gh")
 }
 
 fn read_token_from_hosts() -> Result<String> {
