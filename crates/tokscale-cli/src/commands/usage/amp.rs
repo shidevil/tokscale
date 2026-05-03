@@ -142,6 +142,14 @@ pub fn fetch() -> Result<UsageOutput> {
         }
 
         let body: ApiResponse = resp.json().await?;
+        if body.ok == Some(false) {
+            let msg = body
+                .result
+                .as_ref()
+                .and_then(|r| r.display_text.as_deref())
+                .unwrap_or("unknown error");
+            anyhow::bail!("Amp API returned an error: {msg}");
+        }
         let display_text = body
             .result
             .and_then(|r| r.display_text)

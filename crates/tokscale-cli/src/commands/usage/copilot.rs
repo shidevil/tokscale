@@ -60,7 +60,7 @@ fn gh_config_dir() -> std::path::PathBuf {
     home.join(".config").join("gh")
 }
 
-fn read_token_from_hosts() -> Result<String> {
+fn parse_token_from_hosts() -> Result<String> {
     let path = gh_config_dir().join("hosts.yml");
     if !path.exists() {
         anyhow::bail!("No gh hosts file");
@@ -86,6 +86,10 @@ fn read_token_from_hosts() -> Result<String> {
         }
     }
     anyhow::bail!("No oauth_token found in hosts.yml")
+}
+
+fn read_token_from_hosts() -> Result<String> {
+    parse_token_from_hosts()
 }
 
 fn read_credentials() -> Result<String> {
@@ -172,33 +176,7 @@ pub fn has_credentials() -> bool {
     if super::helpers::read_keychain("gh:github.com").is_ok() {
         return true;
     }
-    // Check that hosts.yml exists and contains a github.com: section with an oauth_token
-    let path = gh_config_dir().join("hosts.yml");
-    if !path.exists() {
-        return false;
-    }
-    let Ok(content) = std::fs::read_to_string(&path) else {
-        return false;
-    };
-    let mut in_github = false;
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed == "github.com:" {
-            in_github = true;
-            continue;
-        }
-        // A non-indented, non-empty, non-comment line starts a new section
-        if in_github && !line.starts_with(' ') && !line.starts_with('\t') && !trimmed.is_empty() && !trimmed.starts_with('#') {
-            in_github = false;
-        }
-        if in_github && trimmed.starts_with("oauth_token:") {
-            let token = trimmed.trim_start_matches("oauth_token:").trim();
-            if !token.is_empty() {
-                return true;
-            }
-        }
-    }
-    false
+    parse_token_from_hosts().is_ok()
 }
 
 pub fn fetch() -> Result<UsageOutput> {

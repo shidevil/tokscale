@@ -119,33 +119,9 @@ fn save_credentials(
             return;
         }
     };
-    if let Err(e) = atomic_write_secret(path, content.as_bytes()) {
+    if let Err(e) = super::helpers::atomic_write_secret(path, content.as_bytes()) {
         eprintln!("warning: failed to save Codex credentials: {e}");
     }
-}
-
-fn atomic_write_secret(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
-    if path.parent().is_none() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "path has no parent directory",
-        ));
-    }
-    let temp_path = path.with_extension("tmp");
-    {
-        let mut f = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-        }
-        std::io::Write::write_all(&mut f, data)?;
-    }
-    std::fs::rename(&temp_path, path)?;
-    Ok(())
 }
 
 pub fn has_credentials() -> bool {
@@ -231,15 +207,15 @@ pub fn fetch() -> Result<UsageOutput> {
                     .clone()
                     .ok_or_else(|| anyhow::anyhow!("Refresh returned no token."))?;
                 if let CredentialSource::File(ref path) = source {
-                    if let Some(new_rt) = refreshed.refresh_token.as_deref() {
-                        save_credentials(
-                            path,
-                            &new,
-                            new_rt,
-                            tokens.account_id.as_deref(),
-                            tokens.id_token.as_deref(),
-                        );
-                    }
+                    let new_rt = refreshed.refresh_token.as_deref()
+                        .unwrap_or_else(|| tokens.refresh_token.as_deref().unwrap_or(""));
+                    save_credentials(
+                        path,
+                        &new,
+                        new_rt,
+                        tokens.account_id.as_deref(),
+                        tokens.id_token.as_deref(),
+                    );
                 }
                 fetch_usage(&client, &new, account_id).await?
             }

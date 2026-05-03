@@ -118,32 +118,31 @@ const BAR_WIDTH: usize = 12;
 const CARD_WIDTH: usize = 62;
 
 fn truncate(s: &str, max_len: usize) -> String {
-    let truncated: String = s.chars().take(max_len).collect();
-    if truncated.len() < s.len() {
-        format!("{}…", truncated)
-    } else {
-        truncated
+    if s.chars().count() <= max_len {
+        return s.to_string();
     }
+    let truncated: String = s.chars().take(max_len - 1).collect();
+    format!("{truncated}…")
 }
 
 fn render_light(output: &UsageOutput) {
     println!("╭{}╮", "─".repeat(CARD_WIDTH));
     // Provider header
-    println!("│ {:<width$}│", output.provider, width = CARD_WIDTH);
+    println!("│ {:<width$}│", output.provider, width = CARD_WIDTH - 1);
     for m in &output.metrics {
         let rem = m.remaining_label.clone().unwrap_or_else(|| format!("{:.0}% left", m.remaining_percent));
         let rem = truncate(&rem, 11);
         let bar = helpers::render_ascii_bar(m.remaining_percent, BAR_WIDTH);
         let reset = m.resets_at.as_ref().map(|r| helpers::format_reset_time(r)).unwrap_or_default();
-        println!("│ {:<14}{:<11}{:<14}{:<20}│", m.label, rem, bar, reset);
+        println!("│ {:<14}{:<11}{:<14}{:<22}│", m.label, rem, bar, reset);
     }
     if let Some(ref email) = output.email {
-        let email = truncate(email, CARD_WIDTH - 10);
-        println!("│ {:<width$}│", format!("Account  {email}"), width = CARD_WIDTH);
+        let email = truncate(email, CARD_WIDTH - 11);
+        println!("│ {:<10}{:<width$}│", "Account", email, width = CARD_WIDTH - 11);
     }
     if let Some(ref plan) = output.plan {
-        let plan = truncate(plan, CARD_WIDTH - 10);
-        println!("│ {:<width$}│", format!("Plan     {plan}"), width = CARD_WIDTH);
+        let plan = truncate(plan, CARD_WIDTH - 11);
+        println!("│ {:<10}{:<width$}│", "Plan", plan, width = CARD_WIDTH - 11);
     }
     println!("╰{}╯", "─".repeat(CARD_WIDTH));
 }
