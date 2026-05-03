@@ -199,6 +199,7 @@ pub struct App {
     pub subscription_usage: Vec<crate::commands::usage::UsageOutput>,
 
     pub usage_fetch_attempted: bool,
+    usage_rx: Option<std::sync::mpsc::Receiver<Vec<crate::commands::usage::UsageOutput>>>,
 }
 
 impl App {
@@ -298,6 +299,7 @@ impl App {
                 }
             },
             usage_fetch_attempted: false,
+            usage_rx: None,
         };
         app.build_model_shade_map();
         Ok(app)
@@ -374,6 +376,22 @@ impl App {
         if *self.dialog_needs_reload.borrow() {
             *self.dialog_needs_reload.borrow_mut() = false;
             self.needs_reload = true;
+        }
+
+        // Poll background usage fetch
+        if let Some(ref rx) = self.usage_rx {
+            if let Ok(results) = rx.try_recv() {
+                self.usage_rx = None;
+                self.subscription_usage = results;
+                if !self.subscription_usage.is_empty() {
+                    crate::commands::usage::save_cache(&self.subscription_usage);
+                    self.status_message = Some("Usage data loaded".into());
+                } else {
+                    crate::commands::usage::clear_cache();
+                    self.status_message = Some("No usage data available".into());
+                }
+                self.status_message_time = Some(std::time::Instant::now());
+            }
         }
     }
 
@@ -508,16 +526,22 @@ impl App {
     }
 
     pub fn fetch_subscription_usage(&mut self) {
-        self.subscription_usage = crate::commands::usage::fetch_all();
-        self.usage_fetch_attempted = true;
-        if !self.subscription_usage.is_empty() {
-            crate::commands::usage::save_cache(&self.subscription_usage);
-            self.status_message = Some("Usage data loaded".into());
-        } else {
-            crate::commands::usage::clear_cache();
-            self.status_message = Some("No usage data available".into());
+        if self.usage_rx.is_some() {
+            return; // already fetching
         }
+        self.usage_fetch_attempted = true;
+        self.status_message = Some("Fetching usage data...".into());
         self.status_message_time = Some(std::time::Instant::now());
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.usage_rx = Some(rx);
+        std::thread::spawn(move || {
+            let results = crate::commands::usage::fetch_all();
+            let _ = tx.send(results);
+        });
+    }
+
+    pub fn is_fetching_usage(&self) -> bool {
+        self.usage_rx.is_some()
     }
 
     pub fn handle_mouse_event(&mut self, event: MouseEvent) {
