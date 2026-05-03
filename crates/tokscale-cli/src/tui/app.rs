@@ -380,17 +380,25 @@ impl App {
 
         // Poll background usage fetch
         if let Some(ref rx) = self.usage_rx {
-            if let Ok(results) = rx.try_recv() {
-                self.usage_rx = None;
-                self.subscription_usage = results;
-                if !self.subscription_usage.is_empty() {
-                    crate::commands::usage::save_cache(&self.subscription_usage);
-                    self.status_message = Some("Usage data loaded".into());
-                } else {
-                    crate::commands::usage::clear_cache();
-                    self.status_message = Some("No usage data available".into());
+            match rx.try_recv() {
+                Ok(results) => {
+                    self.usage_rx = None;
+                    self.subscription_usage = results;
+                    if !self.subscription_usage.is_empty() {
+                        crate::commands::usage::save_cache(&self.subscription_usage);
+                        self.status_message = Some("Usage data loaded".into());
+                    } else {
+                        crate::commands::usage::clear_cache();
+                        self.status_message = Some("No usage data available".into());
+                    }
+                    self.status_message_time = Some(std::time::Instant::now());
                 }
-                self.status_message_time = Some(std::time::Instant::now());
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.usage_rx = None;
+                    self.status_message = Some("Usage fetch failed".into());
+                    self.status_message_time = Some(std::time::Instant::now());
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => {}
             }
         }
     }

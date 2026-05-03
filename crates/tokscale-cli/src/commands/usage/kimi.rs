@@ -37,7 +37,6 @@ struct QuotaDetail {
 
 #[derive(Debug, Deserialize)]
 struct LimitEntry {
-    #[allow(dead_code)]
     window: Option<LimitWindow>,
     detail: Option<QuotaDetail>,
 }
@@ -216,13 +215,16 @@ pub fn fetch() -> Result<UsageOutput> {
         let mut metrics = Vec::new();
         let mut seen = std::collections::HashSet::new();
 
-        // Parse limits[] (sorted by period ascending, first is "Session")
+        // Parse limits[] — use window duration to determine label
         if let Some(ref limits) = resp.limits {
-            for (i, entry) in limits.iter().enumerate() {
+            for entry in limits.iter() {
                 if let Some(ref detail) = entry.detail {
-                    let label = if i == 0 { "Session" } else { "Weekly" };
+                    let label = match entry.window.as_ref().and_then(|w| w.duration) {
+                        Some(d) if d <= 3600 => "Session",
+                        _ => "Weekly",
+                    };
                     if let Some(metric) = parse_quota_detail(label, detail) {
-                        let key = format!("{}:{}", metric.used_percent, metric.remaining_label.as_deref().unwrap_or(""));
+                        let key = format!("{}:{}:{}", label, metric.used_percent, metric.remaining_label.as_deref().unwrap_or(""));
                         if seen.insert(key) {
                             metrics.push(metric);
                         }
@@ -234,7 +236,7 @@ pub fn fetch() -> Result<UsageOutput> {
         // Parse top-level usage as "Weekly" (deduplicate against session)
         if let Some(ref usage) = resp.usage {
             if let Some(metric) = parse_quota_detail("Weekly", usage) {
-                let key = format!("{}:{}", metric.used_percent, metric.remaining_label.as_deref().unwrap_or(""));
+                let key = format!("{}:{}:{}", "Weekly", metric.used_percent, metric.remaining_label.as_deref().unwrap_or(""));
                 if seen.insert(key) {
                     metrics.push(metric);
                 }
