@@ -58,15 +58,19 @@ fn parse_display_text(text: &str) -> Vec<UsageMetric> {
                 let after = &text[slash_pos + 2..];
                 if let Some(space_pos) = after.find(|c: char| c.is_ascii_whitespace()) {
                     if let Ok(total) = after[..space_pos].replace(',', "").parse::<f64>() {
-                        if total > 0.0 {
+                        if total > 0.0 && total.is_finite() && remaining.is_finite() {
                             let used = (total - remaining).max(0.0);
-                            let used_pct = (used / total * 100.0).clamp(0.0, 100.0);
-                            let remaining_pct = 100.0 - used_pct;
+                            let used_pct = if used.is_finite() {
+                                (used / total * 100.0).clamp(0.0, 100.0)
+                            } else {
+                                0.0
+                            };
+                            let remaining_pct = (100.0 - used_pct).clamp(0.0, 100.0);
                             let mut resets_at = None;
 
                             // Estimate reset time from hourly replenish rate
                             if let Some(rate) = parse_dollar_after(text, "+$") {
-                                if rate > 0.0 && used > 0.0 {
+                                if rate > 0.0 && used > 0.0 && rate.is_finite() {
                                     let secs = (used / rate * 3600.0) as i64;
                                     let resets = chrono::Utc::now() + chrono::Duration::seconds(secs);
                                     resets_at = Some(resets.to_rfc3339());

@@ -17,6 +17,7 @@ struct Tokens {
     access_token: Option<String>,
     refresh_token: Option<String>,
     account_id: Option<String>,
+    id_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,9 +45,18 @@ struct Window {
 #[derive(Debug, Deserialize)]
 struct Refresh {
     access_token: Option<String>,
+    refresh_token: Option<String>,
+    #[allow(dead_code)]
+    expires_in: Option<i64>,
 }
 
-fn read_credentials() -> Result<Auth> {
+#[derive(Debug, Clone)]
+enum CredentialSource {
+    File(std::path::PathBuf),
+    Keychain,
+}
+
+fn read_credentials() -> Result<(Auth, CredentialSource)> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let mut paths: Vec<std::path::PathBuf> = Vec::new();
 
@@ -63,7 +73,7 @@ fn read_credentials() -> Result<Auth> {
             if let Ok(auth) = serde_json::from_str::<Auth>(&content) {
                 // Only accept if tokens contains a usable access_token
                 if auth.tokens.as_ref().and_then(|t| t.access_token.as_ref()).is_some() {
-                    return Ok(auth);
+                    return Ok((auth, CredentialSource::File(p.clone())));
                 }
             }
         }
@@ -73,12 +83,69 @@ fn read_credentials() -> Result<Auth> {
     if let Ok(raw) = super::helpers::read_keychain("Codex Auth") {
         if let Ok(auth) = serde_json::from_str::<Auth>(&raw) {
             if auth.tokens.as_ref().and_then(|t| t.access_token.as_ref()).is_some() {
-                return Ok(auth);
+                return Ok((auth, CredentialSource::Keychain));
             }
         }
     }
 
     anyhow::bail!("No Codex credentials found. Run 'codex' to log in.")
+}
+
+fn save_credentials(
+    path: &std::path::Path,
+    access_token: &str,
+    refresh_token: &str,
+    account_id: Option<&str>,
+    id_token: Option<&str>,
+) {
+    let mut tokens = serde_json::json!({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    });
+    if let Some(aid) = account_id {
+        tokens["account_id"] = serde_json::Value::String(aid.to_string());
+    }
+    if let Some(it) = id_token {
+        tokens["id_token"] = serde_json::Value::String(it.to_string());
+    }
+    let json = serde_json::json!({
+        "tokens": tokens,
+        "last_refresh": chrono::Utc::now().to_rfc3339(),
+    });
+    let content = match serde_json::to_string_pretty(&json) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("warning: failed to serialize Codex credentials: {e}");
+            return;
+        }
+    };
+    if let Err(e) = atomic_write_secret(path, content.as_bytes()) {
+        eprintln!("warning: failed to save Codex credentials: {e}");
+    }
+}
+
+fn atomic_write_secret(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    if path.parent().is_none() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "path has no parent directory",
+        ));
+    }
+    let temp_path = path.with_extension("tmp");
+    {
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        }
+        std::io::Write::write_all(&mut f, data)?;
+    }
+    std::fs::rename(&temp_path, path)?;
+    Ok(())
 }
 
 pub fn has_credentials() -> bool {
@@ -140,12 +207,13 @@ async fn fetch_usage(client: &reqwest::Client, token: &str, account_id: Option<&
 pub fn fetch() -> Result<UsageOutput> {
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
-        let auth = read_credentials()?;
+        let (auth, source) = read_credentials()?;
         let tokens = auth
             .tokens
             .ok_or_else(|| anyhow::anyhow!("No Codex tokens."))?;
         let access_token = tokens
             .access_token
+            .clone()
             .ok_or_else(|| anyhow::anyhow!("No Codex access token."))?;
         let account_id = tokens.account_id.as_deref();
 
@@ -153,14 +221,26 @@ pub fn fetch() -> Result<UsageOutput> {
         let resp = match fetch_usage(&client, &access_token, account_id).await {
             Ok(r) => r,
             Err(e) if e.to_string().contains("NEEDS_AUTH") => {
-                let rt = tokens
+                let rt_str = tokens
                     .refresh_token
                     .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("No refresh token."))?;
-                let refreshed = refresh_token(&client, rt).await?;
+                let refreshed = refresh_token(&client, rt_str).await?;
                 let new = refreshed
                     .access_token
+                    .clone()
                     .ok_or_else(|| anyhow::anyhow!("Refresh returned no token."))?;
+                if let CredentialSource::File(ref path) = source {
+                    if let Some(new_rt) = refreshed.refresh_token.as_deref() {
+                        save_credentials(
+                            path,
+                            &new,
+                            new_rt,
+                            tokens.account_id.as_deref(),
+                            tokens.id_token.as_deref(),
+                        );
+                    }
+                }
                 fetch_usage(&client, &new, account_id).await?
             }
             Err(e) => return Err(e),

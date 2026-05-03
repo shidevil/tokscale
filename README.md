@@ -485,7 +485,7 @@ tokscale usage --json
 tokscale usage --light
 ```
 
-In the TUI, press `2` or navigate to the **Usage** tab to see subscription data. Press `u` or `r` to refresh.
+In the TUI, navigate to the **Usage** tab to see subscription data. Press `u` or `r` to refresh.
 
 #### Supported Providers
 

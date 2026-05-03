@@ -98,7 +98,7 @@ fn infer_plan(total: i64) -> Option<String> {
 }
 
 fn epoch_to_ms(ts: i64) -> i64 {
-    if ts.abs() < 1_000_000_000 { ts * 1000 } else { ts }
+    if ts.abs() > 10_000_000_000 { ts } else { ts * 1000 }
 }
 
 fn parse_end_time(ts: i64) -> String {
