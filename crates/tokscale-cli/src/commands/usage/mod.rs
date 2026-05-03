@@ -2,7 +2,7 @@ mod amp;
 mod claude;
 mod codex;
 mod copilot;
-mod helpers;
+pub mod helpers;
 mod kimi;
 mod minimax;
 mod zai;
@@ -51,6 +51,12 @@ pub fn save_cache(data: &[UsageOutput]) {
     let _ = std::fs::write(&path, serde_json::to_string(&json).unwrap_or_default());
 }
 
+pub fn clear_cache() {
+    if let Some(path) = cache_path() {
+        let _ = std::fs::remove_file(&path);
+    }
+}
+
 pub fn load_cache() -> Option<Vec<UsageOutput>> {
     let path = cache_path()?;
     let content = std::fs::read_to_string(&path).ok()?;
@@ -93,13 +99,10 @@ pub fn fetch_all() -> Vec<UsageOutput> {
     std::thread::scope(|s| {
         active
             .into_iter()
-            .map(|(name, _, fetch)| {
+            .map(|(_, _, fetch)| {
                 s.spawn(move || match fetch() {
                     Ok(o) => Some(o),
-                    Err(e) => {
-                        eprintln!("{name}: {e}");
-                        None
-                    }
+                    Err(_) => None,
                 })
             })
             .collect::<Vec<_>>()
@@ -114,18 +117,32 @@ pub fn fetch_all() -> Vec<UsageOutput> {
 const BAR_WIDTH: usize = 12;
 const CARD_WIDTH: usize = 62;
 
+fn truncate(s: &str, max_len: usize) -> String {
+    let truncated: String = s.chars().take(max_len).collect();
+    if truncated.len() < s.len() {
+        format!("{}…", truncated)
+    } else {
+        truncated
+    }
+}
+
 fn render_light(output: &UsageOutput) {
     println!("╭{}╮", "─".repeat(CARD_WIDTH));
+    // Provider header
+    println!("│ {:<width$}│", output.provider, width = CARD_WIDTH);
     for m in &output.metrics {
         let rem = m.remaining_label.clone().unwrap_or_else(|| format!("{:.0}% left", m.remaining_percent));
+        let rem = truncate(&rem, 11);
         let bar = helpers::render_ascii_bar(m.remaining_percent, BAR_WIDTH);
         let reset = m.resets_at.as_ref().map(|r| helpers::format_reset_time(r)).unwrap_or_default();
         println!("│ {:<14}{:<11}{:<14}{:<20}│", m.label, rem, bar, reset);
     }
     if let Some(ref email) = output.email {
+        let email = truncate(email, CARD_WIDTH - 10);
         println!("│ {:<width$}│", format!("Account  {email}"), width = CARD_WIDTH);
     }
     if let Some(ref plan) = output.plan {
+        let plan = truncate(plan, CARD_WIDTH - 10);
         println!("│ {:<width$}│", format!("Plan     {plan}"), width = CARD_WIDTH);
     }
     println!("╰{}╯", "─".repeat(CARD_WIDTH));

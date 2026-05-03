@@ -285,7 +285,16 @@ impl App {
             dialog_needs_reload,
             hourly_view_mode: HourlyViewMode::default(),
             model_shade_map: HashMap::new(),
-            subscription_usage: crate::commands::usage::load_cache().unwrap_or_default(),
+            subscription_usage: {
+                #[cfg(not(test))]
+                {
+                    crate::commands::usage::load_cache().unwrap_or_default()
+                }
+                #[cfg(test)]
+                {
+                    Vec::new()
+                }
+            },
         };
         app.build_model_shade_map();
         Ok(app)
@@ -501,6 +510,7 @@ impl App {
             crate::commands::usage::save_cache(&self.subscription_usage);
             self.status_message = Some("Usage data loaded".into());
         } else {
+            crate::commands::usage::clear_cache();
             self.status_message = Some("No usage data available".into());
         }
         self.status_message_time = Some(std::time::Instant::now());
@@ -606,10 +616,6 @@ impl App {
             .insert(self.current_tab, (self.sort_field, self.sort_direction));
 
         self.current_tab = target;
-
-        if target == Tab::Usage && self.subscription_usage.is_empty() {
-            self.fetch_subscription_usage();
-        }
 
         let (field, dir) =
             self.tab_sort_state

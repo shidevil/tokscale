@@ -1,44 +1,10 @@
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
+use crate::commands::usage::helpers;
 use crate::tui::app::App;
 
 const BAR_WIDTH: usize = 20;
-
-fn render_ascii_bar(remaining_percent: f64) -> String {
-    let pct = remaining_percent.clamp(0.0, 100.0) / 100.0;
-    let filled = (pct * BAR_WIDTH as f64).round() as usize;
-    let empty = BAR_WIDTH - filled;
-    format!("[{}{}]", "=".repeat(filled), "-".repeat(empty))
-}
-
-fn format_reset_time(resets_at: &str) -> String {
-    use chrono::{DateTime, Duration, Utc};
-    let dt = match DateTime::parse_from_rfc3339(resets_at) {
-        Ok(d) => d.with_timezone(&Utc),
-        Err(_) => return format!("resets {resets_at}"),
-    };
-    let diff = dt - Utc::now();
-    if diff <= Duration::zero() {
-        return "resets now".into();
-    }
-    let total_mins = diff.num_minutes();
-    if total_mins < 60 {
-        format!("resets in {total_mins}m")
-    } else if total_mins < 24 * 60 {
-        let hours = diff.num_hours();
-        let mins = (diff - Duration::hours(hours)).num_minutes();
-        if mins > 0 {
-            format!("resets in {hours}h {mins}m")
-        } else {
-            format!("resets in {hours}h")
-        }
-    } else if diff.num_days() < 7 {
-        format!("resets {} {}", dt.format("%a"), dt.format("%-I%P"))
-    } else {
-        format!("resets {}", dt.format("%b %-d"))
-    }
-}
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let block = Block::default()
@@ -112,11 +78,11 @@ fn render_loaded(frame: &mut Frame, app: &App, area: Rect, outputs: &[crate::com
 
         for m in &output.metrics {
             let remaining = m.remaining_label.clone().unwrap_or_else(|| format!("{:.0}% left", m.remaining_percent));
-            let bar = render_ascii_bar(m.remaining_percent);
+            let bar = helpers::render_ascii_bar(m.remaining_percent, BAR_WIDTH);
             let reset = m
                 .resets_at
                 .as_ref()
-                .map(|r| format_reset_time(r))
+                .map(|r| helpers::format_reset_time(r))
                 .unwrap_or_default();
 
             let label = Span::styled(

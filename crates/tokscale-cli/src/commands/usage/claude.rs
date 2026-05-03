@@ -41,6 +41,13 @@ struct Window {
 #[derive(Debug, Deserialize)]
 struct TokenRefresh {
     access_token: Option<String>,
+    refresh_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum CredentialSource {
+    File,
+    Keychain,
 }
 
 fn read_keychain() -> Result<String> {
@@ -53,15 +60,70 @@ pub fn has_credentials() -> bool {
         || super::helpers::read_keychain("Claude Code-credentials").is_ok()
 }
 
-fn read_credentials() -> Result<Credentials> {
+fn read_credentials() -> Result<(Credentials, CredentialSource)> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let path = home.join(".claude").join(".credentials.json");
-    let content = if path.exists() {
-        std::fs::read_to_string(&path)?
+    if path.exists() {
+        let content = std::fs::read_to_string(&path)?;
+        let creds: Credentials = serde_json::from_str(&content)?;
+        Ok((creds, CredentialSource::File))
     } else {
-        read_keychain()?
+        let content = read_keychain()?;
+        let creds: Credentials = serde_json::from_str(&content)?;
+        Ok((creds, CredentialSource::Keychain))
+    }
+}
+
+fn save_credentials(access_token: &str, refresh_token: &str, subscription_type: Option<&str>, rate_limit_tier: Option<&str>) {
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    let path = home.join(".claude").join(".credentials.json");
+    let mut oauth = serde_json::json!({
+        "accessToken": access_token,
+        "refreshToken": refresh_token,
+    });
+    if let Some(st) = subscription_type {
+        oauth["subscriptionType"] = serde_json::Value::String(st.to_string());
+    }
+    if let Some(rlt) = rate_limit_tier {
+        oauth["rateLimitTier"] = serde_json::Value::String(rlt.to_string());
+    }
+    let json = serde_json::json!({
+        "claudeAiOauth": oauth
+    });
+    let content = match serde_json::to_string_pretty(&json) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("warning: failed to serialize Claude credentials: {e}");
+            return;
+        }
     };
-    Ok(serde_json::from_str(&content)?)
+    if let Err(e) = atomic_write_secret(&path, content.as_bytes()) {
+        eprintln!("warning: failed to save Claude credentials: {e}");
+    }
+}
+
+fn atomic_write_secret(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    if path.parent().is_none() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "path has no parent directory",
+        ));
+    }
+    let temp_path = path.with_extension("tmp");
+    {
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        }
+        std::io::Write::write_all(&mut f, data)?;
+    }
+    std::fs::rename(&temp_path, path)?;
+    Ok(())
 }
 
 async fn refresh_token(client: &reqwest::Client, rt: &str) -> Result<TokenRefresh> {
@@ -115,20 +177,21 @@ fn window_metric(label: &str, w: &Window) -> UsageMetric {
 pub fn fetch() -> Result<UsageOutput> {
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
-        let creds = read_credentials()?;
+        let (creds, source) = read_credentials()?;
         let oauth = creds.claude_ai_oauth.ok_or_else(|| {
             anyhow::anyhow!("No Claude OAuth credentials. Run 'claude' to log in.")
         })?;
         let access_token = oauth
             .access_token
+            .clone()
             .ok_or_else(|| anyhow::anyhow!("No Claude access token."))?;
-        let plan = oauth.subscription_type.map(|s| {
+        let plan = oauth.subscription_type.as_ref().map(|s| {
             let tier = oauth.rate_limit_tier.as_deref().and_then(|t| {
                 t.rsplit('_').next()
             });
             match tier {
-                Some(mult) => format!("{} {}", capitalize(&s), mult),
-                None => capitalize(&s),
+                Some(mult) => format!("{} {}", capitalize(s), mult),
+                None => capitalize(s),
             }
         });
 
@@ -143,7 +206,18 @@ pub fn fetch() -> Result<UsageOutput> {
                 let refreshed = refresh_token(&client, rt).await?;
                 let new = refreshed
                     .access_token
+                    .clone()
                     .ok_or_else(|| anyhow::anyhow!("Refresh returned no token."))?;
+                if matches!(source, CredentialSource::File) {
+                    if let Some(new_rt) = refreshed.refresh_token.as_deref() {
+                        save_credentials(
+                            &new,
+                            new_rt,
+                            oauth.subscription_type.as_deref(),
+                            oauth.rate_limit_tier.as_deref(),
+                        );
+                    }
+                }
                 fetch_usage(&client, &new).await?
             }
             Err(e) => return Err(e),

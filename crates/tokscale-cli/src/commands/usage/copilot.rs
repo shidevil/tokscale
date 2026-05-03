@@ -164,7 +164,33 @@ pub fn has_credentials() -> bool {
     if super::helpers::read_keychain("gh:github.com").is_ok() {
         return true;
     }
-    gh_config_dir().join("hosts.yml").exists()
+    // Check that hosts.yml exists and contains a github.com: section with an oauth_token
+    let path = gh_config_dir().join("hosts.yml");
+    if !path.exists() {
+        return false;
+    }
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        return false;
+    };
+    let mut in_github = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "github.com:" {
+            in_github = true;
+            continue;
+        }
+        // A non-indented, non-empty, non-comment line starts a new section
+        if in_github && !line.starts_with(' ') && !line.starts_with('\t') && !trimmed.is_empty() && !trimmed.starts_with('#') {
+            in_github = false;
+        }
+        if in_github && trimmed.starts_with("oauth_token:") {
+            let token = trimmed.trim_start_matches("oauth_token:").trim();
+            if !token.is_empty() {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 pub fn fetch() -> Result<UsageOutput> {
@@ -189,14 +215,14 @@ pub fn fetch() -> Result<UsageOutput> {
 
             for (key, value) in snapshots {
                 let pct_remaining = value.get("percent_remaining")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(100)
-                    .clamp(0, 100);
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(100.0)
+                    .clamp(0.0, 100.0);
                 let remaining = value.get("remaining").and_then(|v| v.as_i64());
                 let entitlement = value.get("entitlement").and_then(|v| v.as_i64());
 
-                let used_pct = (100 - pct_remaining) as f64;
-                let remaining_pct = pct_remaining as f64;
+                let used_pct = 100.0 - pct_remaining;
+                let remaining_pct = pct_remaining;
 
                 let remaining_label = match (remaining, entitlement) {
                     (Some(r), Some(e)) => Some(format!("{r}/{e} left")),

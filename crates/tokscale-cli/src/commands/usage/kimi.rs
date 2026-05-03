@@ -80,7 +80,40 @@ fn save_credentials(access_token: &str, refresh_token: &str, expires_in: i64) {
         "scope": "kimi-code",
         "token_type": "Bearer"
     });
-    let _ = std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap_or_default());
+    let content = match serde_json::to_string_pretty(&json) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("warning: failed to serialize Kimi credentials: {e}");
+            return;
+        }
+    };
+    if let Err(e) = atomic_write_secret(&path, content.as_bytes()) {
+        eprintln!("warning: failed to save Kimi credentials: {e}");
+    }
+}
+
+fn atomic_write_secret(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    if path.parent().is_none() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "path has no parent directory",
+        ));
+    }
+    let temp_path = path.with_extension("tmp");
+    {
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        }
+        std::io::Write::write_all(&mut f, data)?;
+    }
+    std::fs::rename(&temp_path, path)?;
+    Ok(())
 }
 
 fn needs_refresh(expires_at: Option<f64>) -> bool {
