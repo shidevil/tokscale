@@ -18,7 +18,9 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(block, area);
 
     if app.subscription_usage.is_empty() {
-        if app.usage_fetch_attempted {
+        if app.is_fetching_usage() {
+            render_fetching(frame, app, inner);
+        } else if app.usage_fetch_attempted {
             render_empty(frame, app, inner);
         } else {
             render_loading(frame, app, inner);
@@ -28,6 +30,23 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     } else {
         render_loaded(frame, app, inner, &app.subscription_usage);
     }
+}
+
+fn render_fetching(frame: &mut Frame, app: &App, area: Rect) {
+    let center = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(40),
+            Constraint::Length(3),
+            Constraint::Percentage(40),
+        ])
+        .split(area)[1];
+
+    let spin = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'][app.spinner_frame % 10];
+    let paragraph = Paragraph::new(format!("{spin} Fetching subscription data..."))
+        .style(Style::default().fg(app.theme.muted))
+        .alignment(Alignment::Center);
+    frame.render_widget(paragraph, center);
 }
 
 fn render_loading(frame: &mut Frame, app: &App, area: Rect) {
