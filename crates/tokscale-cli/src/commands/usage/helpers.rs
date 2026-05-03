@@ -59,7 +59,7 @@ pub fn atomic_write_secret(path: &std::path::Path, data: &[u8]) -> std::io::Resu
         std::io::Error::new(std::io::ErrorKind::InvalidInput, "path has no parent directory")
     })?;
     std::fs::create_dir_all(dir)?;
-    let temp_path = path.with_extension("tmp");
+    let temp_path = path.with_extension(format!("{}.tmp", std::process::id()));
     {
         #[cfg(unix)]
         let mut opts = {

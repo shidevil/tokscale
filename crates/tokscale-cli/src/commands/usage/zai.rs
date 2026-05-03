@@ -75,7 +75,9 @@ pub fn fetch() -> Result<UsageOutput> {
         .or_else(|_| std::env::var("GLM_API_KEY"))
         .map_err(|_| anyhow::anyhow!("No ZAI_API_KEY or GLM_API_KEY set."))?;
 
-    let rt = tokio::runtime::Runtime::new()?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
     rt.block_on(async {
         let client = reqwest::Client::new();
         let quota = fetch_quota(&client, &api_key).await?;

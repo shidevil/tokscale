@@ -181,7 +181,9 @@ async fn fetch_usage(client: &reqwest::Client, token: &str, account_id: Option<&
 }
 
 pub fn fetch() -> Result<UsageOutput> {
-    let rt = tokio::runtime::Runtime::new()?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
     rt.block_on(async {
         let (auth, source) = read_credentials()?;
         let tokens = auth

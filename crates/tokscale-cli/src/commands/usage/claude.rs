@@ -64,14 +64,15 @@ fn read_credentials() -> Result<(Credentials, CredentialSource)> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let path = home.join(".claude").join(".credentials.json");
     if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        let creds: Credentials = serde_json::from_str(&content)?;
-        Ok((creds, CredentialSource::File))
-    } else {
-        let content = read_keychain()?;
-        let creds: Credentials = serde_json::from_str(&content)?;
-        Ok((creds, CredentialSource::Keychain))
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(creds) = serde_json::from_str::<Credentials>(&content) {
+                return Ok((creds, CredentialSource::File));
+            }
+        }
     }
+    let content = read_keychain()?;
+    let creds: Credentials = serde_json::from_str(&content)?;
+    Ok((creds, CredentialSource::Keychain))
 }
 
 fn save_credentials(access_token: &str, refresh_token: &str, subscription_type: Option<&str>, rate_limit_tier: Option<&str>) {
@@ -151,9 +152,11 @@ fn window_metric(label: &str, w: &Window) -> UsageMetric {
 }
 
 pub fn fetch() -> Result<UsageOutput> {
-    let rt = tokio::runtime::Runtime::new()?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
     rt.block_on(async {
-        let (creds, source) = read_credentials()?;
+        let (creds, _source) = read_credentials()?;
         let oauth = creds.claude_ai_oauth.ok_or_else(|| {
             anyhow::anyhow!("No Claude OAuth credentials. Run 'claude' to log in.")
         })?;
@@ -184,15 +187,13 @@ pub fn fetch() -> Result<UsageOutput> {
                     .access_token
                     .clone()
                     .ok_or_else(|| anyhow::anyhow!("Refresh returned no token."))?;
-                if matches!(source, CredentialSource::File) {
-                    if let Some(new_rt) = refreshed.refresh_token.as_deref() {
-                        save_credentials(
-                            &new,
-                            new_rt,
-                            oauth.subscription_type.as_deref(),
-                            oauth.rate_limit_tier.as_deref(),
-                        );
-                    }
+                if let Some(new_rt) = refreshed.refresh_token.as_deref() {
+                    save_credentials(
+                        &new,
+                        new_rt,
+                        oauth.subscription_type.as_deref(),
+                        oauth.rate_limit_tier.as_deref(),
+                    );
                 }
                 fetch_usage(&client, &new).await?
             }
