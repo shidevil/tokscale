@@ -163,7 +163,7 @@ pub fn fetch() -> Result<UsageOutput> {
         .access_token
         .clone()
         .ok_or_else(|| anyhow::anyhow!("No Kimi access token."))?;
-    let stored_refresh_token = creds.refresh_token.clone();
+    let mut stored_refresh_token = creds.refresh_token.clone();
     let expires_at = creds.expires_at;
 
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -179,6 +179,7 @@ pub fn fetch() -> Result<UsageOutput> {
                     if let Some(new_token) = refreshed.access_token.clone() {
                         access_token = new_token;
                         if let (Some(new_rt), Some(expires_in)) = (&refreshed.refresh_token, refreshed.expires_in) {
+                            stored_refresh_token = Some(new_rt.clone());
                             save_credentials(&access_token, new_rt, expires_in);
                         }
                     }
