@@ -18,7 +18,11 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_widget(block, area);
 
     if app.subscription_usage.is_empty() {
-        render_loading(frame, app, inner);
+        if app.usage_fetch_attempted {
+            render_empty(frame, app, inner);
+        } else {
+            render_loading(frame, app, inner);
+        }
     } else if app.subscription_usage.iter().all(|o| o.metrics.is_empty()) {
         render_empty(frame, app, inner);
     } else {
