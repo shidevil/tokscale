@@ -166,7 +166,9 @@ pub fn fetch() -> Result<UsageOutput> {
     let stored_refresh_token = creds.refresh_token.clone();
     let expires_at = creds.expires_at;
 
-    let rt = tokio::runtime::Runtime::new()?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
     rt.block_on(async {
         let client = reqwest::Client::new();
 

@@ -135,7 +135,9 @@ pub fn has_credentials() -> bool {
 pub fn fetch() -> Result<UsageOutput> {
     let api_key = read_api_key()?;
 
-    let rt = tokio::runtime::Runtime::new()?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
     rt.block_on(async {
         let client = reqwest::Client::new();
         let resp = fetch_api(&client, &api_key).await?;
