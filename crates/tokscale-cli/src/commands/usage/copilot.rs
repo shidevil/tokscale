@@ -202,12 +202,17 @@ pub fn fetch() -> Result<UsageOutput> {
                 .map(String::from);
 
             for (key, value) in snapshots {
-                let pct_remaining = value.get("percent_remaining")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(100.0)
-                    .clamp(0.0, 100.0);
                 let remaining = value.get("remaining").and_then(|v| v.as_i64());
                 let entitlement = value.get("entitlement").and_then(|v| v.as_i64());
+                let pct_remaining = value.get("percent_remaining")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or_else(|| {
+                        match (remaining, entitlement) {
+                            (Some(r), Some(e)) if e > 0 => (r as f64 / e as f64 * 100.0).clamp(0.0, 100.0),
+                            _ => 100.0,
+                        }
+                    })
+                    .clamp(0.0, 100.0);
 
                 let used_pct = 100.0 - pct_remaining;
                 let remaining_pct = pct_remaining;

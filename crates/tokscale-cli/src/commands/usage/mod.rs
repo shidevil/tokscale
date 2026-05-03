@@ -134,7 +134,8 @@ fn render_light(output: &UsageOutput) {
         let rem = truncate(&rem, 11);
         let bar = helpers::render_ascii_bar(m.remaining_percent, BAR_WIDTH);
         let reset = m.resets_at.as_ref().map(|r| helpers::format_reset_time(r)).unwrap_or_default();
-        println!("│ {:<14}{:<11}{:<14}{:<22}│", m.label, rem, bar, reset);
+        let label = truncate(&m.label, 14);
+        println!("│ {:<14}{:<11}{:<14}{:<22}│", label, rem, bar, reset);
     }
     if let Some(ref email) = output.email {
         let email = truncate(email, CARD_WIDTH - 11);
