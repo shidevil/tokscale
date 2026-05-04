@@ -477,9 +477,7 @@ impl App {
                     self.set_status("Refresh already in progress");
                 } else {
                     self.needs_reload = true;
-                    if self.current_tab == Tab::Usage {
-                        self.fetch_subscription_usage();
-                    }
+                    self.fetch_subscription_usage();
                 }
             }
             KeyCode::Char('R') if key.modifiers.contains(KeyModifiers::SHIFT) => {
