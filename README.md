@@ -163,6 +163,9 @@ npx tokscale@latest
 # Or use bunx
 bunx tokscale@latest
 
+# Or use deno dx
+dx tokscale@latest
+
 # Light mode (table rendering only)
 npx tokscale@latest --light
 ```
