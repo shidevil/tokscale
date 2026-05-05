@@ -260,6 +260,7 @@ fn run_loop_with_background(
                 app.set_background_loading(false);
                 match result {
                     Ok(data) => {
+                        app.set_error(None);
                         app.update_data(data);
                         app.set_status("Data loaded");
                     }

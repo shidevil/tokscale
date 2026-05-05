@@ -476,6 +476,7 @@ impl App {
                 if self.background_loading {
                     self.set_status("Refresh already in progress");
                 } else {
+                    self.set_error(None);
                     self.needs_reload = true;
                     self.fetch_subscription_usage();
                 }
