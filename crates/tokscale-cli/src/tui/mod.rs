@@ -135,6 +135,9 @@ pub fn run(
 
     let (bg_tx, bg_rx) = mpsc::channel::<Result<UsageData>>();
 
+    // Fetch subscription usage in the background on startup
+    app.fetch_subscription_usage();
+
     if needs_background_load {
         app.set_background_loading(true);
 

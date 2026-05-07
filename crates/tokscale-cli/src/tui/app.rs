@@ -371,6 +371,7 @@ impl App {
             && self.last_refresh.elapsed() >= self.auto_refresh_interval
         {
             self.needs_reload = true;
+            self.fetch_subscription_usage();
         }
 
         if *self.dialog_needs_reload.borrow() {
